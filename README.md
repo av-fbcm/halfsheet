@@ -1,2 +1,0 @@
-# halfsheet
-Half Sheet Generator
