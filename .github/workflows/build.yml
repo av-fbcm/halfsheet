@@ -22,6 +22,7 @@ jobs:
       - name: Build Windows installer
         env:
           VITE_ANTHROPIC_API_KEY: ${{ secrets.VITE_ANTHROPIC_API_KEY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npm run electron:build:win
 
       - name: Upload Windows installer
@@ -47,6 +48,7 @@ jobs:
       - name: Build Mac installer
         env:
           VITE_ANTHROPIC_API_KEY: ${{ secrets.VITE_ANTHROPIC_API_KEY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npm run electron:build:mac
 
       - name: Upload Mac installer
