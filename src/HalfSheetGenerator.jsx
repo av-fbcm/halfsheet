@@ -563,11 +563,13 @@ ${bodyWrap(pageTable(frontCell) + pageTable(backCell))}
     const code = await window.electronAPI.startOAuth({ authUrl, redirectPort });
 
     // Exchange code for access token
+    const CLIENT_SECRET = "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";
     const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
         client_id: CLIENT_ID,
+        client_secret: CLIENT_SECRET,
         redirect_uri: redirectUri,
         grant_type: "authorization_code",
         code,
