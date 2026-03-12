@@ -365,14 +365,7 @@ export default function HalfSheetGenerator() {
     });
   }
 
-  useEffect(() => {
-    if (document.getElementById("gsi-script")) return;
-    const s = document.createElement("script");
-    s.id = "gsi-script";
-    s.src = "https://accounts.google.com/gsi/client";
-    s.async = true;
-    document.head.appendChild(s);
-  }, []);
+  // GSI library removed — OAuth handled via Electron IPC + PKCE loopback flow
 
   function buildTwoColHTML(d, wordMode, ri, bd) {
     const items = (d.announcements || []);
@@ -536,86 +529,101 @@ ${bodyWrap(pageTable(frontCell) + pageTable(backCell))}
   function buildWordHTML(d, ri, bd) { return buildTwoColHTML(d, true, ri, bd); }
 
 
-    function runOAuth(callback) {
-    if (!window.google?.accounts?.oauth2) {
-      alert("Google Sign-In not loaded yet. Please wait a moment and try again.");
-      return;
+  // ── PKCE OAuth via Electron IPC loopback (Desktop app client) ──────────────
+  async function runOAuth() {
+    if (!window.electronAPI?.startOAuth) {
+      throw new Error("Electron OAuth bridge not available.");
     }
-    const tokenClient = window.google.accounts.oauth2.initTokenClient({
+    // Generate PKCE code verifier + challenge
+    function b64url(buf) {
+      return btoa(String.fromCharCode(...new Uint8Array(buf)))
+        .replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+    }
+    const verifierBytes = crypto.getRandomValues(new Uint8Array(64));
+    const codeVerifier = b64url(verifierBytes);
+    const challengeBuf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(codeVerifier));
+    const codeChallenge = b64url(challengeBuf);
+
+    // Random loopback port (ephemeral range)
+    const redirectPort = Math.floor(Math.random() * (65535 - 49152) + 49152);
+    const redirectUri  = `http://127.0.0.1:${redirectPort}`;
+
+    const authUrl = "https://accounts.google.com/o/oauth2/v2/auth?" + new URLSearchParams({
       client_id: CLIENT_ID,
+      redirect_uri: redirectUri,
+      response_type: "code",
       scope: SCOPES,
-      callback,
+      code_challenge: codeChallenge,
+      code_challenge_method: "S256",
+      access_type: "offline",
+      prompt: "consent",
     });
-    tokenClient.requestAccessToken();
+
+    // Main process opens browser + listens on loopback, returns auth code
+    const code = await window.electronAPI.startOAuth({ authUrl, redirectPort });
+
+    // Exchange code for access token
+    const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        client_id: CLIENT_ID,
+        redirect_uri: redirectUri,
+        grant_type: "authorization_code",
+        code,
+        code_verifier: codeVerifier,
+      }),
+    });
+    const tokenData = await tokenRes.json();
+    if (tokenData.error) throw new Error(tokenData.error_description || tokenData.error);
+    return tokenData.access_token;
   }
 
-  function saveToDrive() {
+  async function saveToDrive() {
     if (!data) return;
-    if (!window.google?.accounts?.oauth2) {
-      setDriveStatus("error");
-      setTimeout(() => setDriveStatus("idle"), 3000);
-      return;
-    }
     setDriveStatus("saving");
     const html = buildPrintHTML(data, responseInstructions, backDate);
     const filename = "FBC-HalfSheet-" + (data.date || "weekly").replace(/[^a-zA-Z0-9]/g, "-") + ".html";
-    runOAuth(async (tokenResponse) => {
-      if (tokenResponse.error) { setDriveStatus("error"); return; }
-      const token = tokenResponse.access_token;
-      try {
-        const metadata = { name: filename, mimeType: "text/html", parents: [FOLDER_ID] };
-        const form = new FormData();
-        form.append("metadata", new Blob([JSON.stringify(metadata)], { type: "application/json" }));
-        form.append("file", new Blob([html], { type: "text/html" }));
-        const res = await fetch(
-          "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true",
-          { method: "POST", headers: { Authorization: "Bearer " + token }, body: form }
-        );
-        if (res.ok) { setDriveStatus("done"); setTimeout(() => setDriveStatus("idle"), 4000); }
-        else { console.error("Drive upload failed:", res.status, await res.json().catch(() => ({}))); setDriveStatus("error"); }
-      } catch (e) { console.error(e); setDriveStatus("error"); }
-    });
+    try {
+      const token = await runOAuth();
+      const metadata = { name: filename, mimeType: "text/html", parents: [FOLDER_ID] };
+      const form = new FormData();
+      form.append("metadata", new Blob([JSON.stringify(metadata)], { type: "application/json" }));
+      form.append("file", new Blob([html], { type: "text/html" }));
+      const res = await fetch(
+        "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true",
+        { method: "POST", headers: { Authorization: "Bearer " + token }, body: form }
+      );
+      if (res.ok) { setDriveStatus("done"); setTimeout(() => setDriveStatus("idle"), 4000); }
+      else { console.error("Drive upload failed:", res.status, await res.json().catch(() => ({}))); setDriveStatus("error"); setTimeout(() => setDriveStatus("idle"), 3000); }
+    } catch (e) { console.error(e); setDriveStatus("error"); setTimeout(() => setDriveStatus("idle"), 3000); }
   }
 
-  function saveAsGoogleDoc() {
+  async function saveAsGoogleDoc() {
     if (!data) return;
-    if (!window.google?.accounts?.oauth2) {
-      setDocStatus("error");
-      setTimeout(() => setDocStatus("idle"), 3000);
-      return;
-    }
     setDocStatus("saving");
     const html = buildDocHTML(data, responseInstructions, backDate);
     const filename = "FBC-HalfSheet-" + (data.date || "weekly").replace(/[^a-zA-Z0-9]/g, "-") + " (Editable)";
-    runOAuth(async (tokenResponse) => {
-      if (tokenResponse.error) { setDocStatus("error"); return; }
-      const token = tokenResponse.access_token;
-      try {
-        // Upload as HTML with Google Doc target mimeType — Drive auto-converts
-        const metadata = {
-          name: filename,
-          mimeType: "application/vnd.google-apps.document",
-          parents: [FOLDER_ID],
-        };
-        const form = new FormData();
-        form.append("metadata", new Blob([JSON.stringify(metadata)], { type: "application/json" }));
-        form.append("file", new Blob([html], { type: "text/html" }));
-        const res = await fetch(
-          "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true",
-          { method: "POST", headers: { Authorization: "Bearer " + token }, body: form }
-        );
-        if (res.ok) {
-          const result = await res.json();
-          setDocStatus("done");
-          // Open the new Google Doc in a new tab
-          if (result.id) window.open(`https://docs.google.com/document/d/${result.id}/edit`, "_blank");
-          setTimeout(() => setDocStatus("idle"), 5000);
-        } else {
-          console.error("Doc upload failed:", res.status, await res.json().catch(() => ({})));
-          setDocStatus("error");
-        }
-      } catch (e) { console.error(e); setDocStatus("error"); }
-    });
+    try {
+      const token = await runOAuth();
+      const metadata = { name: filename, mimeType: "application/vnd.google-apps.document", parents: [FOLDER_ID] };
+      const form = new FormData();
+      form.append("metadata", new Blob([JSON.stringify(metadata)], { type: "application/json" }));
+      form.append("file", new Blob([html], { type: "text/html" }));
+      const res = await fetch(
+        "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true",
+        { method: "POST", headers: { Authorization: "Bearer " + token }, body: form }
+      );
+      if (res.ok) {
+        const result = await res.json();
+        setDocStatus("done");
+        if (result.id) window.open(`https://docs.google.com/document/d/${result.id}/edit`, "_blank");
+        setTimeout(() => setDocStatus("idle"), 5000);
+      } else {
+        console.error("Doc upload failed:", res.status, await res.json().catch(() => ({})));
+        setDocStatus("error"); setTimeout(() => setDocStatus("idle"), 3000);
+      }
+    } catch (e) { console.error(e); setDocStatus("error"); setTimeout(() => setDocStatus("idle"), 3000); }
   }
 
   function downloadWord() {
