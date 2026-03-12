@@ -48,6 +48,37 @@ function getNextSunday(dateStr) {
   }
 }
 
+// ─── First-Sunday detection + default response copy ───────────────────────────
+function isFirstSundayOfMonth(dateStr) {
+  if (!dateStr) return false;
+  try {
+    const cleaned = dateStr.replace(/^[A-Za-z]+,\s*/, "");
+    const d = new Date(cleaned);
+    if (isNaN(d.getTime())) return false;
+    return d.getDate() <= 7; // Already a Sunday from getNextSunday
+  } catch { return false; }
+}
+
+function getDefaultResponseInstructions(sundayDateStr) {
+  if (isFirstSundayOfMonth(sundayDateStr)) {
+    return `The Lord's Supper
+⛪ First Baptist celebrates the Lord's Supper on the First Sunday of the month, after the sermon and a Communion song.
+🔔 There is no children's church on the first Sunday of the month, instead we celebrate intergenerationally.
+✏️ Children's bulletins are available at each entrance.
+🫓 If you are a Baptized believer, you are welcome to partake! This is the Lord's Table, not our own.
+✝️ But if this does not describe you, or your home church or Christian tradition asks you not to partake at other churches, you may cross your arms over yourself and instead receive a spiritual blessing.
+❤️‍🩹 On your way out, a mercy offering will be taken by our Deacons to benefit the needy in our community.`;
+  }
+  return `Ways to Respond
+🎼 During the song of response, you can respond as you feel led.
+✉️ An offering to support the work the Lord is doing at FBCM will be taken during this song. There are black offering boxes by either main entrance.
+At this time, you may also go forward to:
+   🙏 Pray at the steps, laying down your concerns before God.
+   ❤️ To pray with a Pastor or a deacon about any concern on your heart.
+   ✝️ To speak with a Pastor about your decision to follow Jesus in faith, baptism, or to join the church by professing your faith.
+📣 This song of response is a time for us to respond to the presence and promise of God, and to praise and proclaim his name.`;
+}
+
 // ─── Church logo ──────────────────────────────────────────────────────────────
 function Logo({ failed, setFailed }) {
   return (
@@ -92,7 +123,7 @@ function AnnouncementItem({ item, isLast }) {
 }
 
 // ─── Sermon notes ─────────────────────────────────────────────────────────────
-function SermonNotes() {
+function SermonNotes({ responseInstructions }) {
   const heading = (label) => (
     <div style={{
       fontSize: "8px", letterSpacing: "0.14em", textTransform: "uppercase",
@@ -104,6 +135,31 @@ function SermonNotes() {
     Array.from({ length: count }).map((_, i) => (
       <div key={i} style={{ borderBottom: "0.5px solid #ccc", height: "18px", marginBottom: "2px" }} />
     ));
+  const renderResponse = (text) => {
+    if (!text) return null;
+    const allLines = text.split("\n");
+    const headingText = allLines[0] || "";
+    const items = allLines.slice(1).filter(l => l.trim());
+    return (
+      <div style={{ marginTop: "2px" }}>
+        <div style={{
+          fontSize: "8px", letterSpacing: "0.14em", textTransform: "uppercase",
+          color: GOLD, fontFamily: "Arial, sans-serif", fontWeight: "bold",
+          marginBottom: "3px", marginTop: "9px",
+        }}>{headingText}</div>
+        {items.map((line, i) => {
+          const isIndented = /^\s+/.test(line);
+          return (
+            <div key={i} style={{
+              fontSize: "7.5px", color: "#333", lineHeight: 1.5,
+              marginBottom: "2.5px",
+              ...(isIndented ? { paddingLeft: "12px" } : {}),
+            }}>{line.trim()}</div>
+          );
+        })}
+      </div>
+    );
+  };
   return (
     <div style={{ marginTop: "8px", borderTop: `1px solid ${GOLD}`, paddingTop: "7px" }}>
       <div style={{
@@ -114,6 +170,7 @@ function SermonNotes() {
       {heading("Main Point")}{lines(2)}
       {heading("Connections")}{lines(6)}
       {heading("Prayer Response")}{lines(5)}
+      {renderResponse(responseInstructions)}
     </div>
   );
 }
@@ -218,7 +275,7 @@ function HalfSheetFront({ data, logoFailed, setLogoFailed }) {
 }
 
 // ─── Back half-sheet ──────────────────────────────────────────────────────────
-function HalfSheetBack({ data, logoFailed, setLogoFailed }) {
+function HalfSheetBack({ data, logoFailed, setLogoFailed, responseInstructions, backDate }) {
   const outerRef = useRef(null);
   const innerRef = useRef(null);
   useAutoShrink(outerRef, innerRef);
@@ -237,7 +294,7 @@ function HalfSheetBack({ data, logoFailed, setLogoFailed }) {
         <div style={{
           textAlign: "center", fontSize: "9px", letterSpacing: "0.12em",
           textTransform: "uppercase", color: "#666", marginBottom: "8px", fontFamily: "Arial, sans-serif",
-        }}>{getNextSunday(data?.date) || "This Sunday at FBC Muncie"}</div>
+        }}>{backDate || getNextSunday(data?.date) || "This Sunday at FBC Muncie"}</div>
         <div style={{ borderTop: `1.5px solid ${GOLD}`, marginBottom: "10px" }} />
 
         {back.length > 0 && (
@@ -253,7 +310,7 @@ function HalfSheetBack({ data, logoFailed, setLogoFailed }) {
           </>
         )}
 
-        <SermonNotes />
+        <SermonNotes responseInstructions={responseInstructions} />
         <div style={{ flex: 1 }} />
         <ConnectFooter />
       </div>
@@ -272,10 +329,21 @@ export default function HalfSheetGenerator() {
   const [docStatus, setDocStatus] = useState("idle");
   const [wordStatus, setWordStatus] = useState("idle");
   const [editMode, setEditMode] = useState(false);
+  const [responseInstructions, setResponseInstructions] = useState("");
+  const [responseMode, setResponseMode] = useState("ways_to_respond"); // "lords_supper" | "ways_to_respond"
+  const [backDate, setBackDate] = useState("");
 
   // ─── Edit helpers (update data in-place → preview refreshes live) ─────────
-  function startOver() { setData(null); setEditMode(false); setError(""); }
-  function setTopDate(val) { setData(d => ({ ...d, date: val })); }
+  function startOver() { setData(null); setEditMode(false); setError(""); setResponseInstructions(""); setBackDate(""); setResponseMode("ways_to_respond"); }
+  function setTopDate(val) {
+    setData(d => ({ ...d, date: val }));
+    const sunday = getNextSunday(val);
+    const newMode = isFirstSundayOfMonth(sunday) ? "lords_supper" : "ways_to_respond";
+    setResponseMode(newMode);
+    setResponseInstructions(getDefaultResponseInstructions(sunday));
+    // Also update backDate to match new derived Sunday if user hasn't overridden it
+    if (sunday) setBackDate(sunday);
+  }
   function setSermonField(field, val) {
     setData(d => ({ ...d, sermon: { ...(d.sermon || {}), [field]: val || null } }));
   }
@@ -306,7 +374,7 @@ export default function HalfSheetGenerator() {
     document.head.appendChild(s);
   }, []);
 
-  function buildTwoColHTML(d, wordMode) {
+  function buildTwoColHTML(d, wordMode, ri, bd) {
     const items = (d.announcements || []);
     const front = items.slice(0, FRONT_MAX);
     const back  = items.slice(FRONT_MAX, TOTAL_MAX);
@@ -345,10 +413,10 @@ export default function HalfSheetGenerator() {
         </td>
       </tr></table>`;
 
-    const sundayDate = getNextSunday(d.date);
+    const resolvedBackDate = bd || getNextSunday(d.date);
     const dateStyle = `text-align:center;font-size:9pt;letter-spacing:0.1em;text-transform:uppercase;color:#666;font-family:Arial,sans-serif;margin-bottom:6pt;`;
     const frontDateLine = `<div style="${dateStyle}">${d.date || "This Week at FBC Muncie"}</div>`;
-    const backDateLine  = `<div style="${dateStyle}">${sundayDate || "This Sunday at FBC Muncie"}</div>`;
+    const backDateLine  = `<div style="${dateStyle}">${resolvedBackDate || "This Sunday at FBC Muncie"}</div>`;
     const rule = `<div style="border-top:1.5pt solid #b5923a;margin-bottom:8pt;"></div>`;
 
     // ── Sermon box: table for reliable border rendering ─────────────────────
@@ -363,6 +431,16 @@ export default function HalfSheetGenerator() {
       </tr></table>` : "";
 
     // ── Sermon notes ────────────────────────────────────────────────────────
+    const renderResponseHtmlTwo = (text) => {
+      if (!text) return "";
+      const allLines = text.split("\n");
+      const h = allLines[0] || "";
+      const items = allLines.slice(1).filter(l => l.trim());
+      return noteHead(h) + items.map(line => {
+        const isIndented = /^\s+/.test(line);
+        return `<div style="font-size:8pt;line-height:1.5;color:#333;margin-bottom:2pt;${isIndented ? "padding-left:10pt;" : ""}">${line.trim()}</div>`;
+      }).join("");
+    };
     const sermonNotes = `
       <div style="border-top:1pt solid #b5923a;padding-top:5pt;margin-top:6pt;">
         <div style="font-size:7.5pt;letter-spacing:0.12em;text-transform:uppercase;color:#b5923a;font-family:Arial,sans-serif;font-weight:bold;margin-bottom:3pt;">Sermon Notes</div>
@@ -370,6 +448,7 @@ export default function HalfSheetGenerator() {
         ${noteHead("Main Point")}${noteLines(2)}
         ${noteHead("Connections")}${noteLines(6)}
         ${noteHead("Prayer Response")}${noteLines(5)}
+        ${renderResponseHtmlTwo(ri)}
       </div>`;
 
     // ── Stay Connected footer: table for text + QR side by side ────────────
@@ -453,8 +532,8 @@ ${bodyWrap(pageTable(frontCell) + pageTable(backCell))}
 </body></html>`;
   }
 
-  function buildDocHTML(d) { return buildTwoColHTML(d, false); }
-  function buildWordHTML(d) { return buildTwoColHTML(d, true); }
+  function buildDocHTML(d, ri, bd) { return buildTwoColHTML(d, false, ri, bd); }
+  function buildWordHTML(d, ri, bd) { return buildTwoColHTML(d, true, ri, bd); }
 
 
     function runOAuth(callback) {
@@ -478,7 +557,7 @@ ${bodyWrap(pageTable(frontCell) + pageTable(backCell))}
       return;
     }
     setDriveStatus("saving");
-    const html = buildPrintHTML(data);
+    const html = buildPrintHTML(data, responseInstructions, backDate);
     const filename = "FBC-HalfSheet-" + (data.date || "weekly").replace(/[^a-zA-Z0-9]/g, "-") + ".html";
     runOAuth(async (tokenResponse) => {
       if (tokenResponse.error) { setDriveStatus("error"); return; }
@@ -506,7 +585,7 @@ ${bodyWrap(pageTable(frontCell) + pageTable(backCell))}
       return;
     }
     setDocStatus("saving");
-    const html = buildDocHTML(data);
+    const html = buildDocHTML(data, responseInstructions, backDate);
     const filename = "FBC-HalfSheet-" + (data.date || "weekly").replace(/[^a-zA-Z0-9]/g, "-") + " (Editable)";
     runOAuth(async (tokenResponse) => {
       if (tokenResponse.error) { setDocStatus("error"); return; }
@@ -543,7 +622,7 @@ ${bodyWrap(pageTable(frontCell) + pageTable(backCell))}
     if (!data) return;
     setWordStatus("saving");
     try {
-      const html = buildWordHTML(data);
+      const html = buildWordHTML(data, responseInstructions, backDate);
       const blob = new Blob([html], { type: "application/msword" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -562,7 +641,7 @@ ${bodyWrap(pageTable(frontCell) + pageTable(backCell))}
     }
   }
 
-  function buildPrintHTML(d) {
+  function buildPrintHTML(d, ri, bd) {
     const front = (d.announcements || []).slice(0, FRONT_MAX);
     const back = (d.announcements || []).slice(FRONT_MAX, TOTAL_MAX);
     const hasBack = back.length > 0;
@@ -585,10 +664,10 @@ ${bodyWrap(pageTable(frontCell) + pageTable(backCell))}
         <div style="display:none;font-family:Georgia,serif;font-weight:bold;font-size:13px;color:#1a1a2e;letter-spacing:0.04em;line-height:1.2;">FIRST BAPTIST<br/>CHURCH MUNCIE</div>
       </div>`;
 
-    const sundayDate = getNextSunday(d.date);
+    const resolvedBackDate = bd || getNextSunday(d.date);
     const dateStyle = "text-align:center;font-size:9px;letter-spacing:0.12em;text-transform:uppercase;color:#666;margin-bottom:8px;font-family:Arial,sans-serif;";
     const frontDateHtml = `<div style="${dateStyle}">${d.date || "This Week at FBC Muncie"}</div>`;
-    const backDateHtml  = `<div style="${dateStyle}">${sundayDate || "This Sunday at FBC Muncie"}</div>`;
+    const backDateHtml  = `<div style="${dateStyle}">${resolvedBackDate || "This Sunday at FBC Muncie"}</div>`;
     const ruleHtml = `<div style="border-top:1.5px solid #b5923a;margin-bottom:10px;"></div>`;
 
     const sermonHtml = d.sermon ? `
@@ -602,6 +681,16 @@ ${bodyWrap(pageTable(frontCell) + pageTable(backCell))}
     const noteHeading = (label) => `<div style="font-size:8px;letter-spacing:0.14em;text-transform:uppercase;color:#b5923a;font-family:Arial,sans-serif;font-weight:bold;margin-bottom:3px;margin-top:9px;">${label}</div>`;
     const noteLine = () => `<div style="border-bottom:0.5px solid #ccc;height:18px;margin-bottom:2px;"></div>`;
     const noteLines = (n) => Array.from({length: n}).map(() => noteLine()).join("");
+    const renderResponseHtmlPrint = (text) => {
+      if (!text) return "";
+      const allLines = text.split("\n");
+      const h = allLines[0] || "";
+      const items = allLines.slice(1).filter(l => l.trim());
+      return noteHeading(h) + items.map(line => {
+        const isIndented = /^\s+/.test(line);
+        return `<div style="font-size:8px;line-height:1.5;color:#333;margin-bottom:2.5px;${isIndented ? "padding-left:12px;" : ""}">${line.trim()}</div>`;
+      }).join("");
+    };
 
     const sermonNotesHtml = `
       <div style="margin-top:8px;border-top:1px solid #b5923a;padding-top:7px;">
@@ -610,6 +699,7 @@ ${bodyWrap(pageTable(frontCell) + pageTable(backCell))}
         ${noteHeading("Main Point")}${noteLines(2)}
         ${noteHeading("Connections")}${noteLines(6)}
         ${noteHeading("Prayer Response")}${noteLines(5)}
+        ${renderResponseHtmlPrint(ri)}
       </div>`;
 
     const connectFooterHtml = `
@@ -689,7 +779,7 @@ ${bodyWrap(pageTable(frontCell) + pageTable(backCell))}
 
   function printSheet() {
     if (!data) return;
-    const html = buildPrintHTML(data);
+    const html = buildPrintHTML(data, responseInstructions, backDate);
     const blob = new Blob([html], { type: "text/html" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -752,7 +842,13 @@ Rules: include up to 8 most important announcements. Sermon block may be null. K
       }
       const text = json.content?.[0]?.text || "";
       const clean = text.replace(/```json|```/g, "").trim();
-      setData(JSON.parse(clean));
+      const parsed = JSON.parse(clean);
+      setData(parsed);
+      const sundayDate = getNextSunday(parsed.date);
+      const mode = isFirstSundayOfMonth(sundayDate) ? "lords_supper" : "ways_to_respond";
+      setResponseMode(mode);
+      setResponseInstructions(getDefaultResponseInstructions(sundayDate));
+      setBackDate(sundayDate || "");
       setEditMode(true);
     } catch (e) {
       setError("Error: " + (e.message || "Could not parse content. Check your input and try again."));
@@ -932,6 +1028,63 @@ Rules: include up to 8 most important announcements. Sermon block may be null. K
                     <button className="add-ann-btn" onClick={addAnn}>+ Add Announcement</button>
                   )}
 
+                  <div className="edit-section-head">Page 2 — Back</div>
+
+                  <div className="edit-field">
+                    <label className="edit-label">Date shown on back page</label>
+                    <input
+                      className="edit-input"
+                      value={backDate}
+                      onChange={e => setBackDate(e.target.value)}
+                      placeholder={getNextSunday(data?.date) || "e.g. Sunday, March 2, 2025"}
+                    />
+                  </div>
+
+                  <div className="edit-field">
+                    <label className="edit-label">Response type</label>
+                    <select
+                      className="edit-input"
+                      value={responseMode}
+                      onChange={e => {
+                        const mode = e.target.value;
+                        setResponseMode(mode);
+                        setResponseInstructions(
+                          mode === "lords_supper"
+                            ? getDefaultResponseInstructions("Sunday, March 2, 2025")
+                            : getDefaultResponseInstructions("Sunday, March 16, 2025")
+                        );
+                      }}
+                      style={{ cursor: "pointer" }}
+                    >
+                      <option value="ways_to_respond">Ways to Respond (normal Sundays)</option>
+                      <option value="lords_supper">The Lord's Supper (first Sunday)</option>
+                    </select>
+                  </div>
+
+                  <div className="edit-field">
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
+                      <label className="edit-label" style={{ margin: 0 }}>Response Instructions</label>
+                      <button
+                        style={{ fontSize: "9px", padding: "2px 7px", cursor: "pointer", background: "rgba(181,146,58,0.15)", border: "1px solid rgba(181,146,58,0.35)", color: "#b5923a", borderRadius: "3px", flexShrink: 0 }}
+                        onClick={() => {
+                          setResponseInstructions(
+                            responseMode === "lords_supper"
+                              ? getDefaultResponseInstructions("Sunday, March 2, 2025")
+                              : getDefaultResponseInstructions("Sunday, March 16, 2025")
+                          );
+                        }}
+                      >↺ Reset to default</button>
+                    </div>
+                    <textarea
+                      className="edit-input"
+                      rows={9}
+                      value={responseInstructions}
+                      onChange={e => setResponseInstructions(e.target.value)}
+                      placeholder="First line = heading (e.g. Ways to Respond). Each subsequent line = one bullet. Indent lines with spaces for sub-bullets."
+                      style={{ fontFamily: "monospace", fontSize: "10px", lineHeight: 1.5 }}
+                    />
+                  </div>
+
                   <div style={{ height: "8px" }} />
                 </div>
 
@@ -1019,9 +1172,9 @@ Rules: include up to 8 most important announcements. Sermon block may be null. K
                   <div className="page-label">▸ Page 2 — Back</div>
                   <div className="preview-scaled">
                     <div className="preview-wrap">
-                      <HalfSheetBack data={data} {...sharedLogoProps} />
+                      <HalfSheetBack data={data} responseInstructions={responseInstructions} backDate={backDate} {...sharedLogoProps} />
                       <div className="cut" />
-                      <HalfSheetBack data={data} {...sharedLogoProps} />
+                      <HalfSheetBack data={data} responseInstructions={responseInstructions} backDate={backDate} {...sharedLogoProps} />
                     </div>
                   </div>
                 </div>
