@@ -85,16 +85,16 @@ function getDefaultResponseInstructions(sundayDateStr) {
 🔔 There is no children's church on the first Sunday of the month, instead we celebrate intergenerationally.
 ✏️ Children's bulletins are available at each entrance.
 🫓 If you are a Baptized believer, you are welcome to partake! This is the Lord's Table, not our own.
-✝️ But if this does not describe you, or your home church or Christian tradition asks you not to partake at other churches, you may cross your arms over yourself and instead receive a spiritual blessing.
-❤️‍🩹 On your way out, a mercy offering will be taken by our Deacons to benefit the needy in our community.`;
+✝️ But if this does not describe you, or your home church or Christian tradition asks you not to partake at other churches, you may cross your arms over yourself and instead receive a blessing.
+❤️‍🩹 On your way out, our Deacons will collect a mercy offering to benefit the needy in our community.`;
   }
   return `Ways to Respond
 🎼 During the song of response, you can respond as you feel led.
-✉️ An offering to support the work the Lord is doing at FBCM will be taken during this song. There are black offering boxes by either main entrance.
+✉️ An offering to support the work the Lord is doing at FBCM will be taken during this song by passing the offering plates. There are also black offering boxes by either main entrance.
 At this time, you may also go forward to:
    🙏 Pray at the steps, laying down your concerns before God.
    ❤️ To pray with a Pastor or a deacon about any concern on your heart.
-   ✝️ To speak with a Pastor about your decision to follow Jesus in faith, baptism, or to join the church by professing your faith.
+   ✝️ To speak with a Pastor about your decision to follow Jesus in faith, baptism, or to seek church membership.
 📣 This song of response is a time for us to respond to the presence and promise of God, and to praise and proclaim his name.`;
 }
 
