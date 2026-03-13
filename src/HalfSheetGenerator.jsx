@@ -8,8 +8,8 @@ const DARK = "#1a1a2e";
 const CLIENT_ID = "700317661922-usjieegsea5jdo3bi0g6qatekvp4j37d.apps.googleusercontent.com";
 const FOLDER_ID = "1e791rdoNoUsqu6faUW-zidBb5TAchBLK";
 const SCOPES = "https://www.googleapis.com/auth/drive.file";
-const FRONT_MAX = 8;
-const TOTAL_MAX = 8;
+const FRONT_MAX = 9;
+const TOTAL_MAX = 9;
 
 // ─── Auto-shrink hook ─────────────────────────────────────────────────────────
 function useAutoShrink(outerRef, innerRef) {
@@ -168,12 +168,7 @@ function SermonNotes({ responseInstructions }) {
     );
   };
   return (
-    <div style={{ marginTop: "8px", borderTop: `1px solid ${GOLD}`, paddingTop: "7px" }}>
-      <div style={{
-        fontSize: "8px", letterSpacing: "0.14em", textTransform: "uppercase",
-        color: GOLD, fontFamily: "Arial, sans-serif", fontWeight: "bold", marginBottom: "4px",
-      }}>Sermon Notes</div>
-      {heading("Sermon Text")}{lines(2)}
+    <div style={{ marginTop: "6px", paddingTop: "2px" }}>
       {heading("Main Point")}{lines(2)}
       {heading("Connections")}{lines(6)}
       {heading("Prayer Response")}{lines(5)}
@@ -243,33 +238,6 @@ function HalfSheetFront({ data }) {
         </div>
         <div style={{ borderTop: `1.5px solid ${GOLD}`, marginBottom: "10px" }} />
 
-        {data?.sermon && (
-          <div style={{
-            background: "#fdf8f0", border: `1px solid ${GOLD}`,
-            borderLeft: `3.5px solid ${GOLD}`, borderRadius: "3px",
-            padding: "7px 9px", marginBottom: "10px",
-          }}>
-            {data.sermon.series && (
-              <div style={{ fontSize: "7.5px", letterSpacing: "0.14em", textTransform: "uppercase", color: GOLD, fontFamily: "Arial, sans-serif", fontWeight: "bold", marginBottom: "2px" }}>
-                {data.sermon.series}
-              </div>
-            )}
-            {data.sermon.title && (
-              <div style={{ fontSize: "13px", fontWeight: "bold", color: DARK, lineHeight: 1.25, marginBottom: "2px" }}>
-                {"\u201c"}{data.sermon.title}{"\u201d"}
-              </div>
-            )}
-            {data.sermon.scripture && (
-              <div style={{ fontSize: "9px", color: "#555", fontStyle: "italic", marginBottom: data.sermon.teaser ? "3px" : 0 }}>
-                {data.sermon.scripture}
-              </div>
-            )}
-            {data.sermon.teaser && (
-              <div style={{ fontSize: "8.5px", color: "#444", lineHeight: 1.4 }}>{data.sermon.teaser}</div>
-            )}
-          </div>
-        )}
-
         <div style={{ fontSize: "8px", letterSpacing: "0.14em", textTransform: "uppercase", color: GOLD, fontFamily: "Arial, sans-serif", fontWeight: "bold", borderBottom: "0.5px solid #ddd", paddingBottom: "3px", marginBottom: "8px" }}>
           Announcements
         </div>
@@ -316,6 +284,33 @@ function HalfSheetBack({ data, responseInstructions, backDate }) {
           </div>
         </div>
         <div style={{ borderTop: `1.5px solid ${GOLD}`, marginBottom: "10px" }} />
+
+        {data?.sermon && (
+          <div style={{
+            background: "#fdf8f0", border: `1px solid ${GOLD}`,
+            borderLeft: `3.5px solid ${GOLD}`, borderRadius: "3px",
+            padding: "7px 9px", marginBottom: "10px",
+          }}>
+            {data.sermon.series && (
+              <div style={{ fontSize: "7.5px", letterSpacing: "0.14em", textTransform: "uppercase", color: GOLD, fontFamily: "Arial, sans-serif", fontWeight: "bold", marginBottom: "2px" }}>
+                {data.sermon.series}
+              </div>
+            )}
+            {data.sermon.title && (
+              <div style={{ fontSize: "13px", fontWeight: "bold", color: DARK, lineHeight: 1.25, marginBottom: "2px" }}>
+                {"\u201c"}{data.sermon.title}{"\u201d"}
+              </div>
+            )}
+            {data.sermon.scripture && (
+              <div style={{ fontSize: "9px", color: "#555", fontStyle: "italic", marginBottom: data.sermon.teaser ? "3px" : 0 }}>
+                {data.sermon.scripture}
+              </div>
+            )}
+            {data.sermon.teaser && (
+              <div style={{ fontSize: "8.5px", color: "#444", lineHeight: 1.4 }}>{data.sermon.teaser}</div>
+            )}
+          </div>
+        )}
 
         {back.length > 0 && (
           <>
@@ -461,9 +456,7 @@ export default function HalfSheetGenerator() {
       }).join("");
     };
     const sermonNotes = `
-      <div style="border-top:1pt solid #b5923a;padding-top:5pt;margin-top:6pt;">
-        <div style="font-size:7.5pt;letter-spacing:0.12em;text-transform:uppercase;color:#b5923a;font-family:Arial,sans-serif;font-weight:bold;margin-bottom:3pt;">Sermon Notes</div>
-        ${noteHead("Sermon Text")}${noteLines(2)}
+      <div style="margin-top:6pt;padding-top:2pt;">
         ${noteHead("Main Point")}${noteLines(2)}
         ${noteHead("Connections")}${noteLines(4)}
         ${noteHead("Prayer Response")}${noteLines(2)}
@@ -506,14 +499,14 @@ export default function HalfSheetGenerator() {
     const divider = `<td style="width:1px;border-left:1pt dashed #bbb;">&nbsp;</td>`;
 
     const frontCell = `<td style="${cell}">
-      ${logoHtml}${frontHeadingHtml}${rule}${sermonBlock}
+      ${logoHtml}${frontHeadingHtml}${rule}
       ${sectionHead("Announcements")}
       ${front.map((item,i) => annoItem(item, i===front.length-1)).join("")}
       ${miniFooter}
     </td>`;
 
     const backCell = `<td style="width:5.5in;padding:0.18in 0.42in 0.3in;vertical-align:top;font-family:Georgia,serif;color:#1a1a2e;">
-      ${logoHtml}${backHeadingHtml}${rule}
+      ${logoHtml}${backHeadingHtml}${rule}${sermonBlock}
       ${back.length > 0 ? sectionHead("Announcements (cont.)") + back.map((item,i) => annoItem(item, i===back.length-1)).join("") : ""}
       ${sermonNotes}
       ${connectFooter}
@@ -738,9 +731,7 @@ ${bodyWrap(pageTable(frontCell) + pageTable(backCell))}
     };
 
     const sermonNotesHtml = `
-      <div style="margin-top:8px;border-top:1px solid #b5923a;padding-top:7px;">
-        <div style="font-size:8px;letter-spacing:0.14em;text-transform:uppercase;color:#b5923a;font-family:Arial,sans-serif;font-weight:bold;margin-bottom:4px;">Sermon Notes</div>
-        ${noteHeading("Sermon Text")}${noteLines(2)}
+      <div style="margin-top:6px;padding-top:2px;">
         ${noteHeading("Main Point")}${noteLines(2)}
         ${noteHeading("Connections")}${noteLines(6)}
         ${noteHeading("Prayer Response")}${noteLines(5)}
@@ -773,7 +764,7 @@ ${bodyWrap(pageTable(frontCell) + pageTable(backCell))}
     const frontCol = () => `
       <div style="${hs}">
         <div style="${inner}">
-          ${logoHtml}${frontHeadingHtml}${ruleHtml}${sermonHtml}
+          ${logoHtml}${frontHeadingHtml}${ruleHtml}
           <div style="font-size:8px;letter-spacing:0.14em;text-transform:uppercase;color:#b5923a;font-family:Arial,sans-serif;font-weight:bold;border-bottom:0.5px solid #ddd;padding-bottom:3px;margin-bottom:8px;">Announcements</div>
           <div>${front.map((item, i) => annoItem(item, i === front.length - 1)).join("")}</div>
           <div style="flex:1;"></div>
@@ -788,7 +779,7 @@ ${bodyWrap(pageTable(frontCell) + pageTable(backCell))}
     const backCol = () => `
       <div style="${hs}">
         <div style="${inner}">
-          ${logoHtml}${backHeadingHtml}${ruleHtml}
+          ${logoHtml}${backHeadingHtml}${ruleHtml}${sermonHtml}
           ${back.length > 0 ? `
             <div style="font-size:8px;letter-spacing:0.14em;text-transform:uppercase;color:#b5923a;font-family:Arial,sans-serif;font-weight:bold;border-bottom:0.5px solid #ddd;padding-bottom:3px;margin-bottom:8px;">Announcements (cont.)</div>
             <div>${back.map((item, i) => annoItem(item, i === back.length - 1)).join("")}</div>
@@ -876,7 +867,7 @@ Schema:
   ]
 }
 
-Rules: include up to 8 most important announcements. Sermon block may be null. Keep descriptions under 25 words.`,
+Rules: include up to 9 most important announcements. Sermon block may be null. Keep descriptions under 25 words.`,
           messages: [{ role: "user", content: `Extract announcements:\n\n${input}` }]
         })
       });
@@ -1008,24 +999,6 @@ Rules: include up to 8 most important announcements. Sermon block may be null. K
                     <input className="edit-input" value={data.date || ""} onChange={e => setTopDate(e.target.value)} placeholder="e.g. Wednesday, March 12, 2025" />
                   </div>
 
-                  <div className="edit-section-head">Sermon</div>
-                  <div className="edit-field">
-                    <label className="edit-label">Series (optional)</label>
-                    <input className="edit-input" value={data.sermon?.series || ""} onChange={e => setSermonField("series", e.target.value)} placeholder="Series name" />
-                  </div>
-                  <div className="edit-field">
-                    <label className="edit-label">Title</label>
-                    <input className="edit-input" value={data.sermon?.title || ""} onChange={e => setSermonField("title", e.target.value)} placeholder="Sermon title" />
-                  </div>
-                  <div className="edit-field">
-                    <label className="edit-label">Scripture</label>
-                    <input className="edit-input" value={data.sermon?.scripture || ""} onChange={e => setSermonField("scripture", e.target.value)} placeholder="e.g. John 3:16" />
-                  </div>
-                  <div className="edit-field">
-                    <label className="edit-label">Teaser (optional)</label>
-                    <textarea className="edit-input" rows={2} value={data.sermon?.teaser || ""} onChange={e => setSermonField("teaser", e.target.value)} placeholder="One-sentence preview" />
-                  </div>
-
                   <div className="edit-section-head">
                     Announcements ({data.announcements.length}/{TOTAL_MAX})
                   </div>
@@ -1071,6 +1044,23 @@ Rules: include up to 8 most important announcements. Sermon block may be null. K
                   )}
 
                   <div className="edit-section-head">Page 2 — Back</div>
+
+                  <div className="edit-field">
+                    <label className="edit-label">Series (optional)</label>
+                    <input className="edit-input" value={data.sermon?.series || ""} onChange={e => setSermonField("series", e.target.value)} placeholder="Series name" />
+                  </div>
+                  <div className="edit-field">
+                    <label className="edit-label">Sermon Title</label>
+                    <input className="edit-input" value={data.sermon?.title || ""} onChange={e => setSermonField("title", e.target.value)} placeholder="Sermon title" />
+                  </div>
+                  <div className="edit-field">
+                    <label className="edit-label">Scripture</label>
+                    <input className="edit-input" value={data.sermon?.scripture || ""} onChange={e => setSermonField("scripture", e.target.value)} placeholder="e.g. John 3:16" />
+                  </div>
+                  <div className="edit-field">
+                    <label className="edit-label">Teaser (optional)</label>
+                    <textarea className="edit-input" rows={2} value={data.sermon?.teaser || ""} onChange={e => setSermonField("teaser", e.target.value)} placeholder="One-sentence preview" />
+                  </div>
 
                   <div className="edit-field">
                     <label className="edit-label">Date shown on back page</label>
