@@ -32,6 +32,27 @@ function useAutoShrink(outerRef, innerRef) {
 }
 
 // ─── Date utilities ───────────────────────────────────────────────────────────
+function ordinalSuffix(n) {
+  const v = n % 100;
+  if (v >= 11 && v <= 13) return "th";
+  switch (n % 10) { case 1: return "st"; case 2: return "nd"; case 3: return "rd"; default: return "th"; }
+}
+
+function formatDateOrdinal(dateStr) {
+  // Takes any parseable date string and returns "Weekday, Month Dth, YYYY"
+  if (!dateStr) return dateStr;
+  try {
+    const cleaned = dateStr.replace(/^[A-Za-z]+,\s*/, "");
+    const d = new Date(cleaned);
+    if (isNaN(d.getTime())) return dateStr;
+    const weekday = d.toLocaleDateString("en-US", { weekday: "long" });
+    const month   = d.toLocaleDateString("en-US", { month: "long" });
+    const day     = d.getDate();
+    const year    = d.getFullYear();
+    return `${weekday}, ${month} ${day}${ordinalSuffix(day)}, ${year}`;
+  } catch { return dateStr; }
+}
+
 function getNextSunday(dateStr) {
   if (!dateStr) return null;
   try {
@@ -42,7 +63,11 @@ function getNextSunday(dateStr) {
     // Days until next Sunday (never 0 — if already Sunday, jump to the following one)
     const daysUntil = d.getDay() === 0 ? 7 : 7 - d.getDay();
     d.setDate(d.getDate() + daysUntil);
-    return d.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+    const weekday = d.toLocaleDateString("en-US", { weekday: "long" });
+    const month   = d.toLocaleDateString("en-US", { month: "long" });
+    const day     = d.getDate();
+    const year    = d.getFullYear();
+    return `${weekday}, ${month} ${day}${ordinalSuffix(day)}, ${year}`;
   } catch {
     return null;
   }
@@ -188,7 +213,7 @@ function ConnectFooter() {
           }}>Stay Connected</div>
           <div style={{ fontSize: "8.5px", color: "#333", lineHeight: 1.8, fontFamily: "Arial, sans-serif" }}>
             <div>info@fbcmuncie.org  |  765-284-7749</div>
-            <div>309 East Adams Street, Muncie, IN</div>
+            <div>309 East Adams Street, Muncie, IN 47305</div>
             <div>{bold("New Here?")} Visit bit.ly/FBCMnew</div>
             <div>{bold("Socials:")} linktr.ee/fbcmuncie</div>
           </div>
@@ -221,10 +246,19 @@ function HalfSheetFront({ data, logoFailed, setLogoFailed }) {
         display: "flex", flexDirection: "column", height: "100%",
       }}>
         <Logo failed={logoFailed} setFailed={setLogoFailed} />
-        <div style={{
-          textAlign: "center", fontSize: "9px", letterSpacing: "0.12em",
-          textTransform: "uppercase", color: "#666", marginBottom: "8px", fontFamily: "Arial, sans-serif",
-        }}>{data?.date || "This Week at FBC Muncie"}</div>
+        <div style={{ textAlign: "center", marginBottom: "4px" }}>
+          <div style={{ fontSize: "11px", fontWeight: "bold", fontFamily: "Arial, sans-serif", color: DARK, letterSpacing: "0.04em" }}>
+            News from the Wednesday Weekly (WW)
+          </div>
+          <div style={{ fontSize: "8.5px", color: "#666", fontFamily: "Arial, sans-serif", marginTop: "2px", fontStyle: "italic" }}>
+            {data?.date || ""}
+          </div>
+        </div>
+        <div style={{ textAlign: "center", fontSize: "8px", color: "#444", fontFamily: "Arial, sans-serif", lineHeight: 1.6, marginBottom: "6px", padding: "4px 8px", background: "#fafaf7", borderRadius: "3px", border: "0.5px solid #e8e0d0" }}>
+          View the full WW anytime:<br/>
+          Online: <span style={{ fontWeight: "bold", color: DARK }}>bit.ly/fbc-ww</span>
+          {"  ·  "}on the <span style={{ fontWeight: "bold", color: DARK }}>Church Center App</span> — available on your phone's app store.
+        </div>
         <div style={{ borderTop: `1.5px solid ${GOLD}`, marginBottom: "10px" }} />
 
         {data?.sermon && (
@@ -291,10 +325,14 @@ function HalfSheetBack({ data, logoFailed, setLogoFailed, responseInstructions, 
         display: "flex", flexDirection: "column", height: "100%",
       }}>
         <Logo failed={logoFailed} setFailed={setLogoFailed} />
-        <div style={{
-          textAlign: "center", fontSize: "9px", letterSpacing: "0.12em",
-          textTransform: "uppercase", color: "#666", marginBottom: "8px", fontFamily: "Arial, sans-serif",
-        }}>{backDate || getNextSunday(data?.date) || "This Sunday at FBC Muncie"}</div>
+        <div style={{ textAlign: "center", marginBottom: "8px" }}>
+          <div style={{ fontSize: "11px", fontWeight: "bold", fontFamily: "Arial, sans-serif", color: DARK, letterSpacing: "0.04em" }}>
+            This Sunday at FBCM
+          </div>
+          <div style={{ fontSize: "8.5px", color: "#666", fontFamily: "Arial, sans-serif", marginTop: "2px", fontStyle: "italic" }}>
+            {backDate || getNextSunday(data?.date) || ""}
+          </div>
+        </div>
         <div style={{ borderTop: `1.5px solid ${GOLD}`, marginBottom: "10px" }} />
 
         {back.length > 0 && (
@@ -326,7 +364,6 @@ export default function HalfSheetGenerator() {
   const [error, setError] = useState("");
   const [logoFailed, setLogoFailed] = useState(false);
   const [driveStatus, setDriveStatus] = useState("idle");
-  const [docStatus, setDocStatus] = useState("idle");
   const [wordStatus, setWordStatus] = useState("idle");
   const [editMode, setEditMode] = useState(false);
   const [responseInstructions, setResponseInstructions] = useState("");
@@ -399,17 +436,24 @@ export default function HalfSheetGenerator() {
     const logoHtml = `
       <table cellpadding="0" cellspacing="0" border="0" style="width:100%;margin-bottom:5pt;"><tr>
         <td style="text-align:center;vertical-align:middle;">
-          <img src="${TOWER_LOGO}" style="height:28pt;width:auto;vertical-align:middle;" alt=""/>
-          &nbsp;&nbsp;
-          <img src="${LOGO_URL}" style="height:28pt;max-width:110pt;vertical-align:middle;" alt="FBC Muncie"
-            onerror="this.style.display='none'"/>
+          <img src="${TOWER_LOGO}" height="54" style="height:54pt;width:auto;vertical-align:middle;" alt=""/>
         </td>
       </tr></table>`;
 
     const resolvedBackDate = bd || getNextSunday(d.date);
-    const dateStyle = `text-align:center;font-size:9pt;letter-spacing:0.1em;text-transform:uppercase;color:#666;font-family:Arial,sans-serif;margin-bottom:6pt;`;
-    const frontDateLine = `<div style="${dateStyle}">${d.date || "This Week at FBC Muncie"}</div>`;
-    const backDateLine  = `<div style="${dateStyle}">${resolvedBackDate || "This Sunday at FBC Muncie"}</div>`;
+    const frontHeadingHtml = `
+      <div style="text-align:center;margin-bottom:4pt;">
+        <div style="font-size:11pt;font-weight:bold;font-family:Arial,sans-serif;color:#1a1a2e;letter-spacing:0.04em;">News from the Wednesday Weekly (WW)</div>
+        <div style="font-size:8.5pt;color:#666;font-family:Arial,sans-serif;margin-top:2pt;font-style:italic;">${d.date || ""}</div>
+      </div>
+      <div style="text-align:center;font-size:8pt;color:#444;font-family:Arial,sans-serif;line-height:1.6;margin-bottom:5pt;padding:3pt 6pt;background:#fafaf7;border:0.5pt solid #e8e0d0;">
+        View the full WW anytime:&nbsp;&nbsp;Online: <strong>bit.ly/fbc-ww</strong>&nbsp;&nbsp;&middot;&nbsp;&nbsp;on the <strong>Church Center App</strong> &mdash; available on your phone&rsquo;s app store.
+      </div>`;
+    const backHeadingHtml = `
+      <div style="text-align:center;margin-bottom:8pt;">
+        <div style="font-size:11pt;font-weight:bold;font-family:Arial,sans-serif;color:#1a1a2e;letter-spacing:0.04em;">This Sunday at FBCM</div>
+        <div style="font-size:8.5pt;color:#666;font-family:Arial,sans-serif;margin-top:2pt;font-style:italic;">${resolvedBackDate || ""}</div>
+      </div>`;
     const rule = `<div style="border-top:1.5pt solid #b5923a;margin-bottom:8pt;"></div>`;
 
     // ── Sermon box: table for reliable border rendering ─────────────────────
@@ -452,7 +496,7 @@ export default function HalfSheetGenerator() {
             <div style="font-size:8pt;letter-spacing:0.12em;text-transform:uppercase;color:#b5923a;font-family:Arial,sans-serif;font-weight:bold;margin-bottom:4pt;">Stay Connected</div>
             <div style="font-size:8.5pt;color:#333;line-height:1.8;font-family:Arial,sans-serif;">
               <div>info@fbcmuncie.org &nbsp;|&nbsp; 765-284-7749</div>
-              <div>309 East Adams Street, Muncie, IN</div>
+              <div>309 East Adams Street, Muncie, IN 47305</div>
               <div><strong>New Here?</strong> Visit bit.ly/FBCMnew</div>
               <div><strong>Socials:</strong> linktr.ee/fbcmuncie</div>
             </div>
@@ -480,14 +524,14 @@ export default function HalfSheetGenerator() {
     const divider = `<td style="width:1px;border-left:1pt dashed #bbb;">&nbsp;</td>`;
 
     const frontCell = `<td style="${cell}">
-      ${logoHtml}${frontDateLine}${rule}${sermonBlock}
+      ${logoHtml}${frontHeadingHtml}${rule}${sermonBlock}
       ${sectionHead("Announcements")}
       ${front.map((item,i) => annoItem(item, i===front.length-1)).join("")}
       ${miniFooter}
     </td>`;
 
     const backCell = `<td style="${cell}">
-      ${logoHtml}${backDateLine}${rule}
+      ${logoHtml}${backHeadingHtml}${rule}
       ${back.length > 0 ? sectionHead("Announcements (cont.)") + back.map((item,i) => annoItem(item, i===back.length-1)).join("") : ""}
       ${sermonNotes}
       ${connectFooter}
@@ -669,15 +713,22 @@ ${bodyWrap(pageTable(frontCell) + pageTable(backCell))}
     const logoHtml = `
       <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:6px;">
         <img src="${TOWER_LOGO}" alt="" style="height:40px;width:auto;object-fit:contain;flex-shrink:0;"/>
-        <img src="${LOGO_URL}" alt="FBC Muncie" style="max-height:40px;max-width:150px;object-fit:contain;"
-          onerror="this.style.display='none';this.nextSibling.style.display='flex'"/>
-        <div style="display:none;font-family:Georgia,serif;font-weight:bold;font-size:13px;color:#1a1a2e;letter-spacing:0.04em;line-height:1.2;">FIRST BAPTIST<br/>CHURCH MUNCIE</div>
       </div>`;
 
     const resolvedBackDate = bd || getNextSunday(d.date);
-    const dateStyle = "text-align:center;font-size:9px;letter-spacing:0.12em;text-transform:uppercase;color:#666;margin-bottom:8px;font-family:Arial,sans-serif;";
-    const frontDateHtml = `<div style="${dateStyle}">${d.date || "This Week at FBC Muncie"}</div>`;
-    const backDateHtml  = `<div style="${dateStyle}">${resolvedBackDate || "This Sunday at FBC Muncie"}</div>`;
+    const frontHeadingHtml = `
+      <div style="text-align:center;margin-bottom:5px;">
+        <div style="font-size:11px;font-weight:bold;font-family:Arial,sans-serif;color:#1a1a2e;letter-spacing:0.04em;">News from the Wednesday Weekly (WW)</div>
+        <div style="font-size:8.5px;color:#666;font-family:Arial,sans-serif;margin-top:2px;font-style:italic;">${d.date || ""}</div>
+      </div>
+      <div style="text-align:center;font-size:8px;color:#444;font-family:Arial,sans-serif;line-height:1.6;margin-bottom:6px;padding:4px 8px;background:#fafaf7;border-radius:3px;border:0.5px solid #e8e0d0;">
+        View the full WW anytime:&nbsp;&nbsp;Online: <strong>bit.ly/fbc-ww</strong>&nbsp;&nbsp;&middot;&nbsp;&nbsp;on the <strong>Church Center App</strong> &mdash; available on your phone&rsquo;s app store.
+      </div>`;
+    const backHeadingHtml = `
+      <div style="text-align:center;margin-bottom:8px;">
+        <div style="font-size:11px;font-weight:bold;font-family:Arial,sans-serif;color:#1a1a2e;letter-spacing:0.04em;">This Sunday at FBCM</div>
+        <div style="font-size:8.5px;color:#666;font-family:Arial,sans-serif;margin-top:2px;font-style:italic;">${resolvedBackDate || ""}</div>
+      </div>`;
     const ruleHtml = `<div style="border-top:1.5px solid #b5923a;margin-bottom:10px;"></div>`;
 
     const sermonHtml = d.sermon ? `
@@ -719,7 +770,7 @@ ${bodyWrap(pageTable(frontCell) + pageTable(backCell))}
             <div style="font-size:8px;letter-spacing:0.14em;text-transform:uppercase;color:#b5923a;font-family:Arial,sans-serif;font-weight:bold;margin-bottom:5px;">Stay Connected</div>
             <div style="font-size:8.5px;color:#333;line-height:1.8;font-family:Arial,sans-serif;">
               <div>info@fbcmuncie.org  |  765-284-7749</div>
-              <div>309 East Adams Street, Muncie, IN</div>
+              <div>309 East Adams Street, Muncie, IN 47305</div>
               <div><strong>New Here?</strong> Visit bit.ly/FBCMnew</div>
               <div><strong>Socials:</strong> linktr.ee/fbcmuncie</div>
             </div>
@@ -738,7 +789,7 @@ ${bodyWrap(pageTable(frontCell) + pageTable(backCell))}
     const frontCol = () => `
       <div style="${hs}">
         <div style="${inner}">
-          ${logoHtml}${frontDateHtml}${ruleHtml}${sermonHtml}
+          ${logoHtml}${frontHeadingHtml}${ruleHtml}${sermonHtml}
           <div style="font-size:8px;letter-spacing:0.14em;text-transform:uppercase;color:#b5923a;font-family:Arial,sans-serif;font-weight:bold;border-bottom:0.5px solid #ddd;padding-bottom:3px;margin-bottom:8px;">Announcements</div>
           <div>${front.map((item, i) => annoItem(item, i === front.length - 1)).join("")}</div>
           <div style="flex:1;"></div>
@@ -753,7 +804,7 @@ ${bodyWrap(pageTable(frontCell) + pageTable(backCell))}
     const backCol = () => `
       <div style="${hs}">
         <div style="${inner}">
-          ${logoHtml}${backDateHtml}${ruleHtml}
+          ${logoHtml}${backHeadingHtml}${ruleHtml}
           ${back.length > 0 ? `
             <div style="font-size:8px;letter-spacing:0.14em;text-transform:uppercase;color:#b5923a;font-family:Arial,sans-serif;font-weight:bold;border-bottom:0.5px solid #ddd;padding-bottom:3px;margin-bottom:8px;">Announcements (cont.)</div>
             <div>${back.map((item, i) => annoItem(item, i === back.length - 1)).join("")}</div>
@@ -823,7 +874,7 @@ Return ONLY valid JSON, no markdown, no backticks, no explanation.
 
 Schema:
 {
-  "date": "Sunday, Month DD, YYYY or week label",
+  "date": "Weekday, Month DDth, YYYY — use ordinal suffix (1st 2nd 3rd 4th) — extract the Wednesday date from the content",
   "sermon": {
     "series": "series name or null",
     "title": "sermon title or null",
@@ -874,14 +925,14 @@ Rules: include up to 8 most important announcements. Sermon block may be null. K
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Source+Sans+3:wght@400;600&display=swap');
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        .shell { min-height: 100vh; background: #1a1a2e; display: flex; flex-direction: column; font-family: 'Source Sans 3', sans-serif; }
+        .shell { height: 100vh; overflow: hidden; background: #1a1a2e; display: flex; flex-direction: column; font-family: 'Source Sans 3', sans-serif; }
         .topbar { padding: 14px 20px; border-bottom: 1px solid rgba(181,146,58,0.25); display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
         .tower-logo { height: 38px; width: auto; object-fit: contain; }
         .topbar-text { display: flex; align-items: center; gap: 10px; }
         .badge { background: ${GOLD}; color: #fff; font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; padding: 3px 8px; border-radius: 2px; }
         .title { font-family: 'Playfair Display', serif; font-size: 19px; color: #f0ece2; }
         .body { flex: 1; display: flex; min-height: 0; }
-        .left { width: 300px; min-width: 260px; flex-shrink: 0; background: #13132a; border-right: 1px solid rgba(255,255,255,0.06); display: flex; flex-direction: column; padding: 18px 16px; gap: 12px; }
+        .left { width: 300px; min-width: 260px; flex-shrink: 0; background: #13132a; border-right: 1px solid rgba(255,255,255,0.06); display: flex; flex-direction: column; padding: 18px 16px; gap: 12px; overflow-y: auto; }
         .lbl { font-size: 9.5px; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(240,236,226,0.4); font-weight: 600; }
         textarea { flex: 1; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.09); border-radius: 5px; color: #f0ece2; font-size: 12px; line-height: 1.6; padding: 10px; resize: none; font-family: inherit; outline: none; min-height: 280px; }
         textarea:focus { border-color: rgba(181,146,58,0.45); }
@@ -908,9 +959,6 @@ Rules: include up to 8 most important announcements. Sermon block may be null. K
         .drive-btn { background: #1a73e8; color: #fff; border: none; border-radius: 5px; padding: 9px; font-size: 12px; font-weight: 600; letter-spacing: 0.04em; cursor: pointer; font-family: inherit; transition: opacity 0.18s; display: flex; align-items: center; justify-content: center; gap: 7px; }
         .drive-btn:hover:not(:disabled) { opacity: 0.88; }
         .drive-btn:disabled { opacity: 0.45; cursor: default; }
-        .doc-btn { background: #0f9d58; color: #fff; border: none; border-radius: 5px; padding: 9px; font-size: 12px; font-weight: 600; letter-spacing: 0.04em; cursor: pointer; font-family: inherit; transition: opacity 0.18s; display: flex; align-items: center; justify-content: center; gap: 7px; }
-        .doc-btn:hover:not(:disabled) { opacity: 0.88; }
-        .doc-btn:disabled { opacity: 0.45; cursor: default; }
         .word-btn { background: #2b579a; color: #fff; border: none; border-radius: 5px; padding: 9px; font-size: 12px; font-weight: 600; letter-spacing: 0.04em; cursor: pointer; font-family: inherit; transition: opacity 0.18s; display: flex; align-items: center; justify-content: center; gap: 7px; }
         .word-btn:hover:not(:disabled) { opacity: 0.88; }
         .word-btn:disabled { opacity: 0.45; cursor: default; }
@@ -1109,13 +1157,6 @@ Rules: include up to 8 most important announcements. Sermon block may be null. K
                   {driveStatus === "done" && "✓ Saved to Drive!"}
                   {driveStatus === "error" && "✗ Save Failed — Retry"}
                 </button>
-                <button className="doc-btn" onClick={saveAsGoogleDoc} disabled={!data || docStatus === "saving"}>
-                  {docStatus === "saving" && <span className="btn-spin" />}
-                  {docStatus === "idle" && "📝 Save as Google Doc"}
-                  {docStatus === "saving" && "Creating Doc…"}
-                  {docStatus === "done" && "✓ Doc Created — Opening!"}
-                  {docStatus === "error" && "✗ Doc Failed — Retry"}
-                </button>
                 <button className="word-btn" onClick={downloadWord} disabled={!data || wordStatus === "saving"}>
                   {wordStatus === "saving" && <span className="btn-spin" />}
                   {wordStatus === "idle" && "📄 Download Word Doc"}
@@ -1125,8 +1166,7 @@ Rules: include up to 8 most important announcements. Sermon block may be null. K
                 </button>
                 <p className="hint">
                   <strong>Preview</strong> updates live as you type.<br />
-                  <strong>Download:</strong> open .html → Ctrl+P → landscape, no margins.<br />
-                  <strong>Google Doc:</strong> creates editable doc, opens automatically.
+                  <strong>Download:</strong> open .html → Ctrl+P → landscape, no margins.
                 </p>
               </>
             ) : (
