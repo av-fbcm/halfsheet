@@ -94,7 +94,7 @@ function getDefaultResponseInstructions(sundayDateStr) {
 At this time, you may also go forward to:
    🙏 Pray at the steps, laying down your concerns before God.
    ❤️ To pray with a Pastor or a deacon about any concern on your heart.
-   ✝️ To speak with a Pastor about your decision to follow Jesus in faith, baptism, or to seek church membership.
+   ✝️ To share your decision to follow Jesus in faith, baptism, or to seek church membership.
 📣 This song of response is a time for us to respond to the presence and promise of God, and to praise and proclaim his name.`;
 }
 
