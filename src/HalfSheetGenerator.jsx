@@ -877,7 +877,7 @@ ${bodyWrap(pageTable(frontCell) + pageTable(backCell))}
           "anthropic-dangerous-direct-browser-access": "true",
         },
         body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
+          model: "claude-sonnet-4-6",
           max_tokens: 1500,
           system: `Extract structured announcement data from a church weekly news email or document.
 Return ONLY valid JSON, no markdown, no backticks, no explanation.
