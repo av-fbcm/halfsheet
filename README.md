@@ -72,5 +72,20 @@ npm run electron:dev  # as a desktop app
 
 ## API Key
 
-Located in `src/HalfSheetGenerator.jsx` as the `API_KEY` constant.
-Update it there and push to rebuild.
+The Anthropic API key is **not** stored in the code. It is injected at build
+time from a GitHub repository secret named `VITE_ANTHROPIC_API_KEY`.
+
+The key belongs to the Anthropic Console account under **info@fbcmuncie.org**
+(console.anthropic.com) so billing and access stay with the church office,
+independent of any individual staff member.
+
+To rotate or replace the key:
+
+1. Log in to https://console.anthropic.com as info@fbcmuncie.org
+2. Create a new API key (Settings → API Keys)
+3. On GitHub: repo → **Settings → Secrets and variables → Actions** →
+   edit `VITE_ANTHROPIC_API_KEY` → paste the new key
+4. Trigger a rebuild: push any commit, or Actions tab → "Build Installers" →
+   **Run workflow**
+5. Distribute the freshly built installers (old installs keep the old baked-in
+   key until users install the new build)
