@@ -152,6 +152,67 @@ async function callClaudeJSON({ system, user, maxTokens = 8000 }) {
   }
 }
 
+// ─── Testament detection ──────────────────────────────────────────────────────
+// "Other Testament Reading" is how the plan labels it; the congregation should see
+// "Old Testament Reading" or "New Testament Reading". Done in code rather than by the
+// model — a lookup table cannot hallucinate which testament a book is in.
+const OT_BOOKS = [
+  "genesis","exodus","leviticus","numbers","deuteronomy","joshua","judges","ruth",
+  "1 samuel","2 samuel","1 kings","2 kings","1 chronicles","2 chronicles","ezra",
+  "nehemiah","esther","job","psalm","psalms","proverbs","ecclesiastes",
+  "song of solomon","song of songs","canticles","isaiah","jeremiah","lamentations",
+  "ezekiel","daniel","hosea","joel","amos","obadiah","jonah","micah","nahum",
+  "habakkuk","zephaniah","haggai","zechariah","malachi",
+  // common abbreviations
+  "gen","exod","ex","lev","num","deut","dt","josh","judg","1 sam","2 sam","1 kgs",
+  "2 kgs","1 chr","2 chr","neh","esth","ps","pss","prov","eccl","song","isa","jer",
+  "lam","ezek","dan","hos","obad","jon","mic","nah","hab","zeph","hag","zech","mal",
+];
+const NT_BOOKS = [
+  "matthew","mark","luke","john","acts","romans","1 corinthians","2 corinthians",
+  "galatians","ephesians","philippians","colossians","1 thessalonians",
+  "2 thessalonians","1 timothy","2 timothy","titus","philemon","hebrews","james",
+  "1 peter","2 peter","1 john","2 john","3 john","jude","revelation",
+  // common abbreviations
+  "matt","mt","mk","lk","jn","rom","1 cor","2 cor","gal","eph","phil","col",
+  "1 thess","2 thess","1 tim","2 tim","tit","phlm","heb","jas","1 pet","2 pet",
+  "1 jn","2 jn","3 jn","rev",
+];
+
+// Returns "OT", "NT", or null. Never guesses.
+function testamentOf(reference) {
+  if (!reference) return null;
+  let ref = String(reference).toLowerCase().replace(/\./g, " ").trim();
+  // "First Corinthians", "I Corinthians", "II Kings" -> "1 corinthians", "2 kings"
+  ref = ref
+    .replace(/^(first|1st)\s+/, "1 ")
+    .replace(/^(second|2nd)\s+/, "2 ")
+    .replace(/^(third|3rd)\s+/, "3 ")
+    .replace(/^iii\s+/, "3 ")
+    .replace(/^ii\s+/, "2 ")
+    .replace(/^i\s+/, "1 ");
+  // book name = optional leading numeral, then letters/spaces, stopping at the chapter
+  const m = ref.match(/^([123]\s*)?([a-z]+(?:\s+of\s+[a-z]+|\s+[a-z]+)*)/);
+  if (!m) return null;
+  const book = ((m[1] || "").replace(/\s+/g, "") + " " + m[2]).replace(/\s+/g, " ").trim();
+  const hit = (list) => list.some(b => book === b || book.startsWith(b + " "));
+  if (hit(OT_BOOKS)) return "OT";
+  if (hit(NT_BOOKS)) return "NT";
+  return null;
+}
+
+// Label for the non-sermon reading. Falls back to the plan's own wording if the
+// passage can't be identified, rather than inventing a testament.
+function readingLabel(reference, fallback) {
+  const t = testamentOf(reference);
+  if (t === "OT") return "Old Testament Reading";
+  if (t === "NT") return "New Testament Reading";
+  return fallback || "Scripture Reading";
+}
+
+// Matches the element the plan uses for the non-sermon reading, whatever it's called.
+const OTHER_READING_RE = /^(other testament|secondary|second|additional|first)\s+reading$|^other reading$/i;
+
 // ─── Staff titles ─────────────────────────────────────────────────────────────
 // Applied after extraction rather than in the prompt, so it is deterministic and
 // easy to maintain. To add or change staff, edit this map only.
@@ -203,6 +264,22 @@ function titleNames(value, opts) {
     .replace(/&/g, " & ")
     .replace(/\s{2,}/g, " ")
     .trim();
+}
+
+// Rename the non-sermon reading to its actual testament, in the order of worship and
+// on the deacon sheet. If the passage can't be identified, the plan's own wording stays.
+function normalizeReadings(o) {
+  if (!o) return o;
+  const other = o.otherReading || null;
+  const elements = (o.elements || []).map(el => {
+    if (!el || !el.name || !OTHER_READING_RE.test(String(el.name).trim())) return el;
+    const ref = el.detail || (other && other.reference);
+    return { ...el, name: readingLabel(ref, el.name) };
+  });
+  const otherOut = other
+    ? { ...other, label: readingLabel(other.reference, "Other Reading") }
+    : other;
+  return { ...o, elements, otherReading: otherOut };
 }
 
 // Walk an extracted order object and apply titles everywhere a person appears.
@@ -1145,7 +1222,7 @@ ${bodyWrap(pageTable(frontCell) + pageTable(backCell))}
     const roleLine = [
       o.presiding ? `Presiding: ${strong(esc(o.presiding))}` : null,
       (o.sermonReading?.leader || o.reader) ? `Sermon Reading: ${strong(esc(o.sermonReading?.leader || o.reader))}` : null,
-      o.otherReading?.leader ? `Other Reading: ${strong(esc(o.otherReading.leader))}` : null,
+      o.otherReading?.leader ? `${(o.otherReading.label || "").startsWith("Old") ? "OT" : (o.otherReading.label || "").startsWith("New") ? "NT" : "Other"} Reading: ${strong(esc(o.otherReading.leader))}` : null,
       o.preacher ? `Preaching: ${strong(esc(o.preacher))}` : null,
     ].filter(Boolean).join(" &nbsp;·&nbsp; ");
 
@@ -1163,7 +1240,7 @@ ${bodyWrap(pageTable(frontCell) + pageTable(backCell))}
     const during = [
       li(`${strong("Scripture Reading &mdash; yours, right before the sermon.")}${sr.reference ? ` ${strong(esc(sr.reference))}.` : ""}${srWho ? ` Read by ${esc(srWho)}.` : ""} Deacons alternate; arrange a sub if you can't.`),
       (or.reference || or.leader)
-        ? li(`${strong("Other Testament Reading")} &mdash; ${or.reference ? esc(or.reference) + ", " : ""}earlier${or.leader ? `, read by ${esc(or.leader)}` : ""}. Usually staff. ${strong("Not yours.")}`)
+        ? li(`${strong(esc(or.label || "Other Reading"))} &mdash; ${or.reference ? esc(or.reference) + ", " : ""}earlier${or.leader ? `, read by ${esc(or.leader)}` : ""}. Usually staff. ${strong("Not yours.")}`)
         : null,
       isCommunion ? li(`${strong("Communion")} — Pastors lead prayers, words of institution, bread. ${strong("2 deacons serve the cup; 1 takes a tray")} to those who can't come forward — limited mobility, and volunteers at posts (nursery, sound, security).`) : null,
       o.offeringCue
@@ -1294,18 +1371,30 @@ ${FIT_SCRIPT}
   // Without this the print path clips at overflow:hidden instead of scaling, so a
   // long order of worship silently drops the footer (and the QR code) off the page.
   const FIT_SCRIPT = `<script>(function(){
+  // Scaling down and widening by 100/scale keeps the visual width correct, but the
+  // wider box reflows text into FEWER lines — so the content ends up shorter than the
+  // measurement that justified the shrink. Measuring once over-shrinks badly (a 12pt
+  // page came out at 78% with two inches of blank left over). Iterate to a fixed point.
   function fit(){
     var pages = document.querySelectorAll('.halfpage, .fullpage');
     for (var i=0;i<pages.length;i++){
       var outer = pages[i], inner = outer.firstElementChild;
       if(!inner) continue;
       inner.style.transform=''; inner.style.width='';
-      var avail = outer.clientHeight, nat = inner.scrollHeight;
-      if(nat > avail*1.005){
-        var s = avail/nat;
-        inner.style.transform='scale('+s.toFixed(4)+')';
-        inner.style.transformOrigin='top left';
-        inner.style.width=(100/s).toFixed(2)+'%';
+      inner.style.transformOrigin='top left';
+      var avail = outer.clientHeight, s = 1;
+      for (var k=0;k<8;k++){
+        inner.style.width = (100/s).toFixed(3)+'%';
+        var nat = inner.scrollHeight;              // layout height, ignores transform
+        var next = Math.min(1, avail/nat);
+        if (Math.abs(next-s) < 0.004) { s = next; break; }
+        s = next;
+      }
+      if (s < 0.999){
+        inner.style.width = (100/s).toFixed(3)+'%';
+        inner.style.transform = 'scale('+s.toFixed(4)+')';
+      } else {
+        inner.style.width=''; inner.style.transform='';
       }
     }
   }
@@ -1629,7 +1718,7 @@ order. A responsive reading that merely mentions a communion table is not enough
 Do not invent elements, names, or sections that are not in the source text. Use null when
 something is genuinely absent rather than guessing.`,
       });
-      setOrder(applyStaffTitles(parsed));
+      setOrder(applyStaffTitles(normalizeReadings(parsed)));
       setBackMode("order");
 
       // The worship plan is authoritative for the service date. Deriving it from the
