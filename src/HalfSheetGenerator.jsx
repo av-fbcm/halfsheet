@@ -227,6 +227,44 @@ const STAFF_TITLES = {
 // Who's Serving sheet. Flip to true to show them on the half-sheet too.
 const SUFFIX_ON_HALFSHEET = false;
 
+// ─── Diaconate ────────────────────────────────────────────────────────────────
+// The worship plan's "Deacons" field lists only the deacons AT THE TABLE for
+// communion. The floating / reading deacon is not recorded there, so membership has
+// to be known here. UPDATE THIS LIST when the diaconate changes (next: January 2027).
+// Complete as of August 2026: five deacons.
+// (Care circles are a different count — seven, the five deacons plus the two pastors.)
+const DEACONS = [
+  "Janis Wright",
+  "Gayle Songer",
+  "Richard Flaherty",
+  "Jim Butler",
+  "Aaron Smith",
+];
+
+// Same person under a different name. Left side is what a plan might say.
+const DEACON_ALIASES = { "dick flaherty": "richard flaherty" };
+
+// Greeter-float / Scripture-reading rotation, from the sign-up sheet.
+// null = not yet assigned; no rotation check runs for that week.
+const FLOATING_DEACON_BY_WEEK = {
+  1: "Janis Wright",
+  2: "Gayle Songer",
+  3: "Richard Flaherty",   // "Dick"
+  4: "Jim Butler",
+  5: "Aaron Smith",   // rare fifth Sundays only
+};
+
+const normName = n => {
+  const k = String(n || "").trim().toLowerCase().replace(/\s+/g, " ");
+  return DEACON_ALIASES[k] || k;
+};
+const isDeaconName = (name, planDeacons) => {
+  const n = normName(name);
+  if (!n) return false;
+  return DEACONS.some(d => normName(d) === n)
+      || (planDeacons || []).some(d => normName(d) === n);
+};
+
 // Offering collection isn't in the worship plan's roster, so it lives here.
 // Edit these two lines if the lead or the contacts change.
 const OFFERING_LEAD = "Terry Harke";
@@ -280,6 +318,32 @@ function normalizeReadings(o) {
     ? { ...other, label: readingLabel(other.reference, "Other Reading") }
     : other;
   return { ...o, elements, otherReading: otherOut };
+}
+
+// The sermon reading is the deacons' responsibility, but a deacon may hand it to a
+// church member. Only label the reader "Deacon" when they actually appear on THIS
+// Sunday's deacon roster — on a week where a designee is already named, the plain name
+// is correct and calling them a deacon would not be. Editable afterward either way.
+function labelDeaconReader(o) {
+  if (!o) return o;
+  const els = o.elements || [];
+
+  // "Sermon Scripture Reading" starts with "Sermon" but is the reading, not the sermon.
+  const isSermon = n => /^(sermon|message)\b/i.test(String(n).trim()) && !/reading/i.test(String(n));
+  const sermonIdx = els.findIndex(e => e && isSermon(e.name));
+  if (sermonIdx < 0) return o;
+
+  // nearest reading above the sermon — the same rule the extraction prompt uses
+  for (let i = sermonIdx - 1; i >= 0; i--) {
+    const el = els[i];
+    if (!el || !/reading/i.test(String(el.name || ""))) continue;
+    if (!el.leader || /^deacon\s/i.test(el.leader)) return o;
+    if (!isDeaconName(el.leader, o.deacons)) return o;   // already a designee
+    const next = [...els];
+    next[i] = { ...el, leader: `Deacon ${el.leader} (or designee)` };
+    return { ...o, elements: next };
+  }
+  return o;
 }
 
 // Walk an extracted order object and apply titles everywhere a person appears.
@@ -466,6 +530,9 @@ function ConnectFooter() {
         </div>
         <img src={QR_CODE} alt="QR Code" style={{ height: "54px", width: "54px", objectFit: "contain", flexShrink: 0 }} />
       </div>
+      <div style={{ textAlign: "center", fontSize: "9px", fontStyle: "italic", color: GOLD, fontFamily: "Arial, sans-serif", fontWeight: "600", letterSpacing: "0.02em", marginTop: "6px" }}>
+        &ldquo;Praise &amp; Proclaim&rdquo; — Isaiah 12:4
+      </div>
       <div style={{ borderTop: "0.5px solid #ddd", marginTop: "5px", paddingTop: "4px", display: "flex", justifyContent: "space-between" }}>
         <span style={{ fontSize: "7px", color: "#999", fontFamily: "Arial, sans-serif" }}>fbcmuncie.org</span>
         <span style={{ fontSize: "7px", color: "#999", fontFamily: "Arial, sans-serif" }}>Church Connect App</span>
@@ -599,13 +666,11 @@ function HalfSheetBack({ data, responseInstructions, backDate, backMode, order }
         padding: "0.38in 0.42in 0.32in", boxSizing: "border-box",
         display: "flex", flexDirection: "column", height: "100%",
       }}>
-        <Logo />
+        {/* Logo removed and the theme line moved to the footer: both were repeating
+            the front page and costing the order of worship about half an inch. */}
         <div style={{ textAlign: "center", marginBottom: "8px" }}>
           <div style={{ fontSize: "11px", fontWeight: "bold", fontFamily: "Arial, sans-serif", color: DARK, letterSpacing: "0.04em" }}>
             Sunday Worship at FBCM
-          </div>
-          <div style={{ fontSize: "9.5px", fontStyle: "italic", color: GOLD, fontFamily: "Arial, sans-serif", marginTop: "2px", fontWeight: "600", letterSpacing: "0.02em" }}>
-            "Praise &amp; Proclaim" — Isaiah 12:4
           </div>
           <div style={{ fontSize: "8.5px", color: "#666", fontFamily: "Arial, sans-serif", marginTop: "2px", fontStyle: "italic" }}>
             {backDate || getNextSunday(data?.date) || ""}
@@ -768,7 +833,6 @@ export default function HalfSheetGenerator() {
     const backHeadingHtml = `
       <div style="text-align:center;margin-bottom:8pt;">
         <div style="font-size:11pt;font-weight:bold;font-family:Arial,sans-serif;color:#1a1a2e;letter-spacing:0.04em;">Sunday Worship at FBCM</div>
-        <div style="font-size:9.5pt;font-style:italic;color:#292854;font-family:Arial,sans-serif;margin-top:2pt;font-weight:600;letter-spacing:0.02em;">&ldquo;Praise &amp; Proclaim&rdquo; &mdash; Isaiah 12:4</div>
         <div style="font-size:8.5pt;color:#666;font-family:Arial,sans-serif;margin-top:2pt;font-style:italic;">${resolvedBackDate || ""}</div>
       </div>`;
     const rule = `<div style="border-top:1.5pt solid #292854;margin-bottom:8pt;"></div>`;
@@ -844,6 +908,7 @@ export default function HalfSheetGenerator() {
             <img src="${QR_CODE}" style="height:125px;width:125px;" alt="QR"/>
           </td>
         </tr></table>
+        <div style="text-align:center;font-size:9pt;font-style:italic;color:#292854;font-family:Arial,sans-serif;font-weight:600;margin-top:6pt;margin-bottom:4pt;">&ldquo;Praise &amp; Proclaim&rdquo; &mdash; Isaiah 12:4</div>
         <table cellpadding="0" cellspacing="4pt" border="0" style="width:100%;border-top:0.5pt solid #ddd;"><tr>
           <td style="font-size:7pt;color:#999;font-family:Arial,sans-serif;">fbcmuncie.org</td>
           <td style="font-size:7pt;color:#999;font-family:Arial,sans-serif;text-align:right;">Church Connect App</td>
@@ -870,7 +935,7 @@ export default function HalfSheetGenerator() {
     </td>`;
 
     const backCell = `<td style="width:5.5in;padding:0.18in 0.42in 0.3in;vertical-align:top;font-family:Georgia,serif;color:#1a1a2e;">
-      ${logoHtml}${backHeadingHtml}${rule}
+      ${backHeadingHtml}${rule}
       ${back.length > 0 ? sectionHead("Announcements (cont.)") + back.map((item,i) => annoItem(item, i===back.length-1)).join("") : ""}
       ${backBody}
       ${connectFooter}
@@ -1069,7 +1134,6 @@ ${bodyWrap(pageTable(frontCell) + pageTable(backCell))}
     const backHeadingHtml = `
       <div style="text-align:center;margin-bottom:8px;">
         <div style="font-size:11px;font-weight:bold;font-family:Arial,sans-serif;color:#1a1a2e;letter-spacing:0.04em;">Sunday Worship at FBCM</div>
-        <div style="font-size:9.5px;font-style:italic;color:#292854;font-family:Arial,sans-serif;margin-top:2px;font-weight:600;letter-spacing:0.02em;">&ldquo;Praise &amp; Proclaim&rdquo; &mdash; Isaiah 12:4</div>
         <div style="font-size:8.5px;color:#666;font-family:Arial,sans-serif;margin-top:2px;font-style:italic;">${resolvedBackDate || ""}</div>
       </div>`;
     const ruleHtml = `<div style="border-top:1.5px solid #292854;margin-bottom:10px;"></div>`;
@@ -1142,6 +1206,7 @@ ${bodyWrap(pageTable(frontCell) + pageTable(backCell))}
           </div>
           <img src="${QR_CODE}" style="height:54px;width:54px;object-fit:contain;flex-shrink:0;" alt="QR"/>
         </div>
+        <div style="text-align:center;font-size:9px;font-style:italic;color:#292854;font-family:Arial,sans-serif;font-weight:600;letter-spacing:0.02em;margin-top:6px;">&ldquo;Praise &amp; Proclaim&rdquo; &mdash; Isaiah 12:4</div>
         <div style="border-top:0.5px solid #ddd;margin-top:5px;padding-top:4px;display:flex;justify-content:space-between;">
           <span style="font-size:7px;color:#999;font-family:Arial,sans-serif;">fbcmuncie.org</span>
           <span style="font-size:7px;color:#999;font-family:Arial,sans-serif;">Church Connect App</span>
@@ -1169,7 +1234,7 @@ ${bodyWrap(pageTable(frontCell) + pageTable(backCell))}
     const backCol = () => `
       <div class="halfpage" style="${hs}">
         <div style="${inner}">
-          ${logoHtml}${backHeadingHtml}${ruleHtml}
+          ${backHeadingHtml}${ruleHtml}
           ${back.length > 0 ? `
             <div style="font-size:8px;letter-spacing:0.14em;text-transform:uppercase;color:#292854;font-family:Arial,sans-serif;font-weight:bold;border-bottom:0.5px solid #ddd;padding-bottom:3px;margin-bottom:8px;">Announcements (cont.)</div>
             <div>${back.map((item, i) => annoItem(item, i === back.length - 1)).join("")}</div>
@@ -1238,7 +1303,18 @@ ${bodyWrap(pageTable(frontCell) + pageTable(backCell))}
     const or = o.otherReading || {};
     const srWho = sr.leader || o.reader;
     const during = [
-      li(`${strong("Scripture Reading &mdash; yours, right before the sermon.")}${sr.reference ? ` ${strong(esc(sr.reference))}.` : ""}${srWho ? ` Read by ${esc(srWho)}.` : ""} Deacons alternate; arrange a sub if you can't.`),
+      // If the named reader isn't a deacon, a designee is already arranged — say so
+      // rather than telling the deacon to arrange one.
+      (() => {
+        const covered = srWho && !isDeaconName(srWho, o.deacons);
+        return li(
+          `${strong("Scripture Reading &mdash; yours, right before the sermon.")}` +
+          (sr.reference ? ` ${strong(esc(sr.reference))}.` : "") +
+          (covered
+            ? ` ${strong("Covered by " + esc(srWho))}` + ` &mdash; no action needed unless that changes.`
+            : (srWho ? ` Read by ${esc(srWho)}.` : "") + ` Deacons alternate; arrange a sub if you can't.`)
+        );
+      })(),
       (or.reference || or.leader)
         ? li(`${strong(esc(or.label || "Other Reading"))} &mdash; ${or.reference ? esc(or.reference) + ", " : ""}earlier${or.leader ? `, read by ${esc(or.leader)}` : ""}. Usually staff. ${strong("Not yours.")}`)
         : null,
@@ -1718,7 +1794,7 @@ order. A responsive reading that merely mentions a communion table is not enough
 Do not invent elements, names, or sections that are not in the source text. Use null when
 something is genuinely absent rather than guessing.`,
       });
-      setOrder(applyStaffTitles(normalizeReadings(parsed)));
+      setOrder(applyStaffTitles(labelDeaconReader(normalizeReadings(parsed))));
       setBackMode("order");
 
       // The worship plan is authoritative for the service date. Deriving it from the

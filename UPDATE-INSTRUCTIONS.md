@@ -1,64 +1,150 @@
-# Half-Sheet Generator Update — July 2026
+# Updating the Half-Sheet Generator
 
-Two changes: (A) ChurchTrac/Church Connect text and links, (B) move the Claude API billing to info@fbcmuncie.org.
-
----
-
-## Part A — Push the updated files with GitHub Desktop
-
-Two files changed: `src/HalfSheetGenerator.jsx` and `README.md`.
-
-1. Open **GitHub Desktop**, signed in to the **av-fbcm** account.
-2. If the repo isn't cloned yet: **File → Clone repository** → select `av-fbcm/halfsheet`.
-3. In File Explorer, copy the two files from this folder into your local repo, replacing the existing ones:
-   - `src/HalfSheetGenerator.jsx` → into the repo's `src` folder
-   - `README.md` → into the repo's root folder
-4. GitHub Desktop will show both files as changed. Summary: `Switch to ChurchTrac Church Connect; update links` → **Commit to main** → **Push origin**.
-5. The push triggers the "Build Installers" workflow automatically. After ~5 minutes: repo on github.com → **Actions** tab → completed run → **Artifacts** → download the new `.exe` / `.dmg` and reinstall on staff computers.
-
-### What changed in the app
-- "Church Center App" → "Church Connect App" (all footers and exports)
-- Full-WW blurb now reads: *"View the full WW anytime on the **Church Connect** app: **bit.ly/churchtracFBCM**"* (replaces bit.ly/fbc-ww and the app-store sentence)
-- "New Here? Visit bit.ly/FBCMnew" → "New Here? Visit bit.ly/churchtracFBCM"
-
-> ⚠️ Note: the "New Here?" line and the blurb now point to the same link. If you'd rather keep a separate new-visitor form link, just tell Claude and it's a one-line change.
-> ⚠️ Also check the printed **QR code** in the footer — if it points to a Planning Center page, it needs a new image.
+Two parts: **how to push any change** (permanent reference), and **what changed in the
+August 2026 update** (this round's notes).
 
 ---
 
-## Part B — Move the Claude API to info@fbcmuncie.org
+# Part 1 — How to push a change
 
-**Wait to do this until after Part A is pushed** (or do both, then rebuild once).
+Applies to every update, including the small edits under Part 3.
 
-### 1. Create the new Anthropic Console account
-1. Go to **https://console.anthropic.com** in a browser where you are *not* signed in to the pastor's account (or use a private window).
-2. Sign up with **info@fbcmuncie.org** → verify via the emailed link/code.
-3. When asked, create an organization (e.g., "First Baptist Church Muncie").
+1. Open **GitHub Desktop**, signed in as **av-fbcm**.
+   If the repo isn't cloned: **File → Clone repository** → `av-fbcm/halfsheet`.
+2. Copy the changed files into your local repo, replacing what's there.
+   Almost always this is just `src/HalfSheetGenerator.jsx`.
+3. GitHub Desktop lists the changed files. **Untick anything ending in `-preview.html`** —
+   those are scratch files and one contains member names.
+4. Write a short summary → **Commit to main** → **Push origin**.
+5. The push starts the "Build Installers" workflow. After ~5 minutes:
+   github.com → repo → **Actions** → the completed run → **Artifacts** →
+   download the new `.exe` / `.dmg` and reinstall on staff computers.
 
-### 2. Add billing
-1. In the Console: **Settings → Billing**.
-2. Add the church card and buy initial credits (usage is modest — a weekly half-sheet run costs cents; $5–$25 of credit lasts a long time). Consider enabling auto-reload with a low monthly limit so it never runs dry mid-bulletin.
+**Never commit `.env`.** It holds two live API keys. It's gitignored and has never been
+committed — keep it that way.
 
-### 3. Create the API key
-1. **Settings → API Keys → Create Key**. Name it `halfsheet-generator`.
-2. Copy the `sk-ant-...` key immediately — it is shown only once.
+## Testing before you push
 
-### 4. Put the key in GitHub
-1. On github.com (signed in as av-fbcm): `halfsheet` repo → **Settings → Secrets and variables → Actions**.
-2. Find `VITE_ANTHROPIC_API_KEY` → **Update** → paste the new key → save.
+```bash
+npm run electron:dev
+```
 
-### 5. Rebuild and distribute
-1. **Actions** tab → **Build Installers** → **Run workflow** (or just push any commit).
-2. Download the new installers from Artifacts and reinstall on staff machines.
-   The key is baked in at build time — old installs keep using the old key until updated.
+Not `npm run dev` — PDF export needs the desktop app.
 
-### 6. Decommission the old key
-1. Once the new build is confirmed working (paste a test email, check extraction runs), log in to the **pastor's** console.anthropic.com account and **delete/disable** the old API key.
-2. Optionally remove billing from that account.
+Paste a real Wednesday Weekly, then a real worship order, and check:
+
+- the date on both sheets matches the **worship order**, not the email
+- the sermon title and passage look right in the front-page message box
+- the QR code in the back footer scans to `fbcmuncie.churchtrac.com`
+- Who's Serving is portrait and one page
+- **read the whole sheet** — see the warning in Part 4
 
 ---
 
-## Ongoing
+# Part 2 — What changed, August 2026
 
-- Key rotation, billing, and usage now all live under info@fbcmuncie.org — no dependence on any individual's account.
-- The GitHub repo stays under av@fbcmuncie.org (av-fbcm), which is fine: the repo holds only code; the secret is write-only and can't be read back out.
+The bulletin's back page used to be sermon notes. It's now the order of worship, so deacons
+and offering counters can see when they're needed without a separate briefing.
+
+**New**
+- Order of worship on the back page, with section headings, leaders, and passages
+- A second **Who's Serving Sunday** page — deacon duties, every serving team, offering block
+- **PDF export**, replacing "open the HTML and press Ctrl+P"
+- **Google Drive with permanent links** — fixed filenames overwritten weekly, plus a dated archive
+- **This Sunday's Message** box moved to the front page
+- Automatic Old/New Testament reading labels
+- `Deacon X (or designee)` on the sermon reading, when the reader is a deacon
+
+**Changed**
+- Model bumped to `claude-sonnet-5`
+- QR code now points to `fbcmuncie.churchtrac.com`. It had been showing the church logo by
+  mistake, so the printed sheet had never carried a working QR
+- Announcements reduced from 9 to 8 to make room for the message box; on communion Sundays a
+  standing children's-ministry announcement is added back as a ninth
+- The two children's bullets moved out of the Lord's Supper block, which is now communion
+  instruction only
+- Logo and theme line removed from the back page (the theme line moved into the footer) to
+  give the order of worship more room
+- Panel text contrast raised throughout — some of it had been near-invisible
+
+**Keeping the old back page:** the "Back page shows" dropdown switches between Sermon Notes
+and Order of Worship per week.
+
+---
+
+# Part 3 — Edits you'll need to make over time
+
+All near the top of `src/HalfSheetGenerator.jsx`. Change the value, push via Part 1.
+
+### The diaconate — due January 2027
+
+```js
+const DEACONS = ["Janis Wright", "Gayle Songer", "Richard Flaherty", "Jim Butler", "Aaron Smith"];
+```
+
+Five deacons — complete as of August 2026.
+
+This drives the `Deacon X (or designee)` label on the sermon reading. It has to live here
+because the worship plan's "Deacons" field lists only the deacons *at the table* for
+communion — the floating/reading deacon isn't recorded anywhere in the plan.
+
+Don't confuse this with **care circles**, of which there are seven: the five deacons plus
+Rev. Ellis and Rev. Balmer, who each carry one. Only the five belong in `DEACONS`.
+
+**A missing name fails quietly:** that person simply prints without the title, and nothing
+looks broken. Update the list the same week the diaconate changes.
+
+If someone goes by a different name in worship plans, add them:
+
+```js
+const DEACON_ALIASES = { "dick flaherty": "richard flaherty" };
+```
+
+### The reading rotation
+
+```js
+const FLOATING_DEACON_BY_WEEK = { 1: "Janis Wright", 2: "Gayle Songer",
+                                  3: "Richard Flaherty", 4: "Jim Butler", 5: "Aaron Smith" };
+```
+
+Reference only — nothing currently reads it. It exists so the rotation is written down
+somewhere durable, and so a future mismatch check has something to check against.
+
+### Offering contacts
+
+```js
+const OFFERING_LEAD = "Terry Harke";
+const OFFERING_CONTACTS = ["Terry Harke", "Dick Flaherty"];
+```
+
+### Staff titles
+
+```js
+const STAFF_TITLES = {
+  "Kendall Ellis":   { prefix: "Rev." },
+  "Jonathan Balmer": { prefix: "Rev." },
+  "Cynthia Smith":   { suffix: "Worship Director" },
+};
+```
+
+Prefixes appear everywhere. Suffixes only appear on Who's Serving, because they're too long
+for the half-sheet's leader column — set `SUFFIX_ON_HALFSHEET = true` to change that.
+
+---
+
+# Part 4 — Read the sheet before printing
+
+The app is accurate about names, dates, songs, and passages — those are copied from documents
+you wrote.
+
+The one place it composes original text is the **sermon description** in the front-page message
+box, drawn from the Wednesday Weekly. That field once produced *"Paul wrestles with what God's
+mercy means…"* for a sermon on Genesis 32 — where the person wrestling is Jacob, and Paul
+belongs to the other reading that morning. It was fluent, plausible, and wrong.
+
+The prompt now forbids describing or interpreting the passage, and the teaser sentence was
+dropped from the printed box. But this is the field to check each week. Everything else on the
+sheet is transcription; that line is generation.
+
+If it's ever wrong, edit it in the panel before exporting — or clear it. A missing sentence is
+better than a wrong one in three hundred hands.
