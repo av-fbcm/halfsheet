@@ -98,6 +98,51 @@ At this time, you may also go forward to:
 📣 This song of response is a time for us to respond to the presence and promise of God, and to praise and proclaim his name.`;
 }
 
+// ─── Claude API helper ────────────────────────────────────────────────────────
+// Both extractions are simple structured-output tasks, so we ask for "low" effort.
+// This matters: Sonnet 5 has adaptive thinking on by default at high effort, and
+// max_tokens is a hard cap on thinking + response combined. High effort plus a small
+// max_tokens burns the budget thinking and truncates the JSON mid-object.
+async function callClaudeJSON({ system, user, maxTokens = 8000 }) {
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": API_KEY,
+      "anthropic-version": "2023-06-01",
+      "anthropic-dangerous-direct-browser-access": "true",
+    },
+    body: JSON.stringify({
+      model: "claude-sonnet-5",
+      max_tokens: maxTokens,
+      output_config: { effort: "low" },
+      system,
+      messages: [{ role: "user", content: user }],
+    }),
+  });
+
+  const json = await res.json();
+  if (!res.ok) throw new Error(json?.error?.message || `API error ${res.status}`);
+
+  if (json.stop_reason === "max_tokens") {
+    throw new Error("The response was cut off before it finished. Try pasting a shorter section, or trimming the input.");
+  }
+
+  const text = (json.content || []).filter(b => b.type === "text").map(b => b.text).join("");
+  // Be forgiving about stray prose or code fences around the JSON object.
+  const cleaned = text.replace(/```json|```/g, "").trim();
+  const start = cleaned.indexOf("{");
+  const end = cleaned.lastIndexOf("}");
+  if (start === -1 || end === -1 || end <= start) {
+    throw new Error("Claude did not return usable data. Check the pasted text and try again.");
+  }
+  try {
+    return JSON.parse(cleaned.slice(start, end + 1));
+  } catch {
+    throw new Error("The extracted data was incomplete or malformed. Try again, or paste a shorter section.");
+  }
+}
+
 // ─── Staff titles ─────────────────────────────────────────────────────────────
 // Applied after extraction rather than in the prompt, so it is deterministic and
 // easy to maintain. To add or change staff, edit this map only.
@@ -1380,18 +1425,9 @@ ${hasPage2 ? `<div class="pg">${body2}<div class="div"></div>${body2}</div>` : "
     setOrderLoading(true);
     setError("");
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": API_KEY,
-          "anthropic-version": "2023-06-01",
-          "anthropic-dangerous-direct-browser-access": "true",
-        },
-        body: JSON.stringify({
-          model: "claude-sonnet-5",
-          max_tokens: 1500,
-          system: `Extract a simplified congregational order of worship from a pasted worship service plan.
+      const parsed = await callClaudeJSON({
+        user: `Extract the order of worship:\n\n${orderInput}`,
+        system: `Extract a simplified congregational order of worship from a pasted worship service plan.
 The plan may come from ChurchTrac, Planning Center, an email, or a typed list. Formats vary widely.
 Return ONLY valid JSON, no markdown, no backticks, no explanation.
 
@@ -1508,13 +1544,7 @@ order. A responsive reading that merely mentions a communion table is not enough
 
 Do not invent elements, names, or sections that are not in the source text. Use null when
 something is genuinely absent rather than guessing.`,
-          messages: [{ role: "user", content: `Extract the order of worship:\n\n${orderInput}` }]
-        })
       });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json?.error?.message || `API error ${res.status}`);
-      const text = json.content?.[0]?.text || "";
-      const parsed = JSON.parse(text.replace(/```json|```/g, "").trim());
       setOrder(applyStaffTitles(parsed));
       setBackMode("order");
     } catch (e) {
@@ -1530,18 +1560,9 @@ something is genuinely absent rather than guessing.`,
     setError("");
     setData(null);
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": API_KEY,
-          "anthropic-version": "2023-06-01",
-          "anthropic-dangerous-direct-browser-access": "true",
-        },
-        body: JSON.stringify({
-          model: "claude-sonnet-5",
-          max_tokens: 1500,
-          system: `Extract structured announcement data from a church weekly news email or document.
+      const parsed = await callClaudeJSON({
+        user: `Extract announcements:\n\n${input}`,
+        system: `Extract structured announcement data from a church weekly news email or document.
 Return ONLY valid JSON, no markdown, no backticks, no explanation.
 
 Schema:
@@ -1565,17 +1586,7 @@ Schema:
 }
 
 Rules: include up to 9 most important announcements. Sermon block may be null. Keep descriptions under 25 words.`,
-          messages: [{ role: "user", content: `Extract announcements:\n\n${input}` }]
-        })
       });
-      const json = await res.json();
-      if (!res.ok) {
-        const msg = json?.error?.message || `API error ${res.status}`;
-        throw new Error(msg);
-      }
-      const text = json.content?.[0]?.text || "";
-      const clean = text.replace(/```json|```/g, "").trim();
-      const parsed = JSON.parse(clean);
       setData(parsed);
       const sundayDate = getNextSunday(parsed.date);
       const mode = isFirstSundayOfMonth(sundayDate) ? "lords_supper" : "ways_to_respond";
