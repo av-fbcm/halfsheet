@@ -566,6 +566,7 @@ export default function HalfSheetGenerator() {
   const [servingPdfStatus, setServingPdfStatus] = useState("idle");
   const [drivePdfStatus, setDrivePdfStatus] = useState("idle");
   const [driveLinks, setDriveLinks] = useState(null);
+  const [orderEditorOpen, setOrderEditorOpen] = useState(false);
 
   // ─── Edit helpers (update data in-place → preview refreshes live) ─────────
   function startOver() { setData(null); setEditMode(false); setError(""); setResponseInstructions(""); setBackDate(""); setResponseMode("ways_to_respond"); setOrder(null); setOrderInput(""); setBackMode("notes"); }
@@ -1050,7 +1051,7 @@ ${bodyWrap(pageTable(frontCell) + pageTable(backCell))}
     const inner = "padding:0.38in 0.42in 0.32in;box-sizing:border-box;display:flex;flex-direction:column;height:100%;";
 
     const frontCol = () => `
-      <div style="${hs}">
+      <div class="halfpage" style="${hs}">
         <div style="${inner}">
           ${logoHtml}${frontHeadingHtml}${ruleHtml}
           <div style="font-size:8px;letter-spacing:0.14em;text-transform:uppercase;color:#292854;font-family:Arial,sans-serif;font-weight:bold;border-bottom:0.5px solid #ddd;padding-bottom:3px;margin-bottom:8px;">Announcements</div>
@@ -1065,7 +1066,7 @@ ${bodyWrap(pageTable(frontCell) + pageTable(backCell))}
       </div>`;
 
     const backCol = () => `
-      <div style="${hs}">
+      <div class="halfpage" style="${hs}">
         <div style="${inner}">
           ${logoHtml}${backHeadingHtml}${ruleHtml}${sermonHtml}
           ${back.length > 0 ? `
@@ -1096,6 +1097,7 @@ ${bodyWrap(pageTable(frontCell) + pageTable(backCell))}
 <body>
   <div class="page">${frontCol()}<div class="cut"></div>${frontCol()}</div>
   <div class="page">${backCol()}<div class="cut"></div>${backCol()}</div>
+  ${FIT_SCRIPT}
   <script>window.onload = () => window.print();<\/script>
 </body>
 </html>`;
@@ -1145,7 +1147,7 @@ ${bodyWrap(pageTable(frontCell) + pageTable(backCell))}
     ].join("") : li(`Reset anything you moved; check with the presiding leader before you leave.`);
 
     const body = `
-      <div style="width:5.5in;height:8.5in;background:white;box-sizing:border-box;font-family:Georgia,serif;color:#1a1a2e;overflow:hidden;">
+      <div class="halfpage" style="width:5.5in;height:8.5in;background:white;box-sizing:border-box;font-family:Georgia,serif;color:#1a1a2e;overflow:hidden;">
         <div style="padding:0.4in 0.45in 0.32in;box-sizing:border-box;display:flex;flex-direction:column;height:100%;">
           <div style="text-align:center;margin-bottom:7px;">
             <div style="font-size:15px;font-weight:bold;font-family:Arial,sans-serif;letter-spacing:0.05em;">SERVING TODAY</div>
@@ -1178,7 +1180,7 @@ ${bodyWrap(pageTable(frontCell) + pageTable(backCell))}
       <div style="display:flex;align-items:baseline;gap:5px;margin-bottom:3px;font-size:9.5px;line-height:1.35;">
         <span style="color:#555;font-family:Arial,sans-serif;font-size:8.5px;white-space:nowrap;">${esc(r.role)}</span>
         <span style="flex:1;border-bottom:0.5px dotted #ddd;min-width:8px;"></span>
-        <span style="font-weight:bold;color:#1a1a2e;text-align:right;">${(r.names || []).map(esc).join(", ")}</span>
+        <span style="font-weight:bold;color:#1a1a2e;text-align:right;">${(r.names || []).map(esc).join(" &nbsp;·&nbsp; ")}</span>
       </div>`).join("");
 
     const pt = o.praiseTeam || [];
@@ -1188,7 +1190,7 @@ ${bodyWrap(pageTable(frontCell) + pageTable(backCell))}
     others.forEach(r => { if (!r) return; (byTeam[r.team || "Also Serving"] ||= []).push(r); });
 
     const body2 = `
-      <div style="width:5.5in;height:8.5in;background:white;box-sizing:border-box;font-family:Georgia,serif;color:#1a1a2e;overflow:hidden;">
+      <div class="halfpage" style="width:5.5in;height:8.5in;background:white;box-sizing:border-box;font-family:Georgia,serif;color:#1a1a2e;overflow:hidden;">
         <div style="padding:0.4in 0.45in 0.32in;box-sizing:border-box;display:flex;flex-direction:column;height:100%;">
           <div style="text-align:center;margin-bottom:7px;">
             <div style="font-size:15px;font-weight:bold;font-family:Arial,sans-serif;letter-spacing:0.05em;">WHO'S SERVING</div>
@@ -1197,7 +1199,7 @@ ${bodyWrap(pageTable(frontCell) + pageTable(backCell))}
           <div style="border-top:1.5px solid ${GOLD};margin-bottom:6px;"></div>
 
           ${roleLine ? `<div style="font-size:9.5px;color:#333;font-family:Arial,sans-serif;line-height:1.7;margin-bottom:2px;">${roleLine}</div>` : ""}
-          ${deacons.length ? `<div style="font-size:9.5px;color:#333;font-family:Arial,sans-serif;line-height:1.7;">Deacons: ${strong(deacons.map(esc).join(", "))}</div>` : ""}
+          ${deacons.length ? `<div style="font-size:9.5px;color:#333;font-family:Arial,sans-serif;line-height:1.7;">Deacons: ${strong(deacons.map(esc).join(" &nbsp;·&nbsp; "))}</div>` : ""}
 
           ${pt.length ? h("Praise Team") + roleBlock(pt) + `
             <div style="margin-top:5px;background:#fdf8f0;border-left:3px solid ${GOLD};padding:5px 8px;font-size:8.5px;color:#444;font-family:Arial,sans-serif;line-height:1.4;">
@@ -1229,6 +1231,7 @@ ${bodyWrap(pageTable(frontCell) + pageTable(backCell))}
 </style></head><body>
 <div class="pg">${body}<div class="div"></div>${body}</div>
 ${hasPage2 ? `<div class="pg">${body2}<div class="div"></div>${body2}</div>` : ""}
+${FIT_SCRIPT}
 </body></html>`;
   }
 
@@ -1244,6 +1247,29 @@ ${hasPage2 ? `<div class="pg">${body2}<div class="div"></div>${body2}</div>` : "
     document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
+
+  // Print/PDF equivalent of the useAutoShrink hook used in the on-screen preview.
+  // Without this the print path clips at overflow:hidden instead of scaling, so a
+  // long order of worship silently drops the footer (and the QR code) off the page.
+  const FIT_SCRIPT = `<script>(function(){
+  function fit(){
+    var pages = document.querySelectorAll('.halfpage');
+    for (var i=0;i<pages.length;i++){
+      var outer = pages[i], inner = outer.firstElementChild;
+      if(!inner) continue;
+      inner.style.transform=''; inner.style.width='';
+      var avail = outer.clientHeight, nat = inner.scrollHeight;
+      if(nat > avail*1.005){
+        var s = avail/nat;
+        inner.style.transform='scale('+s.toFixed(4)+')';
+        inner.style.transformOrigin='top left';
+        inner.style.width=(100/s).toFixed(2)+'%';
+      }
+    }
+  }
+  if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',fit);}else{fit();}
+  window.addEventListener('load',fit);
+})();<\/script>`;
 
   // ── PDF export (Chromium print engine via Electron main process) ───────────
   function stripAutoPrint(html) {
@@ -1822,7 +1848,7 @@ Rules: include up to 9 most important announcements. Sermon block may be null. K
                         </label>
                         <button
                           style={{ fontSize: "9px", padding: "2px 7px", cursor: "pointer", background: "rgba(181,146,58,0.15)", border: "1px solid rgba(181,146,58,0.35)", color: "#292854", borderRadius: "3px", flexShrink: 0 }}
-                          onClick={addOrderRow}
+                          onClick={() => { addOrderRow(); setOrderEditorOpen(true); }}
                         >+ Add element</button>
                       </div>
 
@@ -1843,7 +1869,23 @@ Rules: include up to 9 most important announcements. Sermon block may be null. K
                         {orderLoading ? "Extracting…" : "⚡ Extract Order of Worship"}
                       </button>
 
-                      {(order?.elements || []).map((el, i) => (
+                      {/* 19 elements x 3 inputs makes an unusable wall in a 300px rail.
+                          Collapsed by default — most weeks the extraction needs no edits. */}
+                      {order?.elements?.length > 0 && (
+                        <button
+                          onClick={() => setOrderEditorOpen(v => !v)}
+                          style={{
+                            width: "100%", marginTop: "8px", padding: "7px", cursor: "pointer",
+                            fontSize: "10px", fontWeight: 600, letterSpacing: "0.05em",
+                            borderRadius: "4px", border: "1px solid rgba(181,146,58,0.35)",
+                            background: "rgba(181,146,58,0.12)", color: "#f0ece2", fontFamily: "inherit",
+                          }}
+                        >
+                          {orderEditorOpen ? "▾ Hide" : "▸ Edit"} {order.elements.length} elements
+                        </button>
+                      )}
+
+                      {orderEditorOpen && (order?.elements || []).map((el, i) => (
                         <div key={i} style={{ border: "1px solid rgba(181,146,58,0.25)", borderRadius: "4px", padding: "6px", marginTop: "6px" }}>
                           <div style={{ display: "flex", gap: "4px", marginBottom: "4px" }}>
                             <input
