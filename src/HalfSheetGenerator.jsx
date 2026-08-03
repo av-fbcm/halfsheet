@@ -207,6 +207,8 @@ function applyStaffTitles(o) {
     presiding: titleNames(o.presiding),
     reader: titleNames(o.reader),
     preacher: titleNames(o.preacher),
+    sermonReading: o.sermonReading ? { ...o.sermonReading, leader: titleNames(o.sermonReading.leader) } : null,
+    otherReading: o.otherReading ? { ...o.otherReading, leader: titleNames(o.otherReading.leader) } : null,
     deacons: (o.deacons || []).map(n => titleOne(n)),
     praiseTeam: (o.praiseTeam || []).map(r => ({ ...r, names: (r.names || []).map(n => titleOne(n)) })),
     avTeam: (o.avTeam || []).map(r => ({ ...r, names: (r.names || []).map(n => titleOne(n)) })),
@@ -572,9 +574,10 @@ export default function HalfSheetGenerator() {
   const [drivePdfStatus, setDrivePdfStatus] = useState("idle");
   const [driveLinks, setDriveLinks] = useState(null);
   const [orderEditorOpen, setOrderEditorOpen] = useState(false);
+  const [dateWarning, setDateWarning] = useState("");
 
   // ─── Edit helpers (update data in-place → preview refreshes live) ─────────
-  function startOver() { setData(null); setEditMode(false); setError(""); setResponseInstructions(""); setBackDate(""); setResponseMode("ways_to_respond"); setOrder(null); setOrderInput(""); setBackMode("notes"); }
+  function startOver() { setData(null); setEditMode(false); setError(""); setResponseInstructions(""); setBackDate(""); setResponseMode("ways_to_respond"); setOrder(null); setOrderInput(""); setBackMode("notes"); setDateWarning(""); }
 
   // ─── Order-of-worship edit helpers ───────────────────────────────────────
   function setOrderField(i, field, val) {
@@ -1125,7 +1128,8 @@ ${bodyWrap(pageTable(frontCell) + pageTable(backCell))}
 
     const roleLine = [
       o.presiding ? `Presiding: ${strong(esc(o.presiding))}` : null,
-      o.reader ? `Reading: ${strong(esc(o.reader))}` : null,
+      (o.sermonReading?.leader || o.reader) ? `Sermon Reading: ${strong(esc(o.sermonReading?.leader || o.reader))}` : null,
+      o.otherReading?.leader ? `Other Reading: ${strong(esc(o.otherReading.leader))}` : null,
       o.preacher ? `Preaching: ${strong(esc(o.preacher))}` : null,
     ].filter(Boolean).join(" &nbsp;·&nbsp; ");
 
@@ -1136,8 +1140,16 @@ ${bodyWrap(pageTable(frontCell) + pageTable(backCell))}
       isCommunion ? li(`${strong("Tray setup —")} two stacks, lid on top. Each stack: Juice, then Bread, then a third tray. One stack's third tray is empty (for symmetry); the other stack's third tray is Bread &amp; Juice combined — that is the one taken to people in their seats. Juice cups around the outside, bread cubes on a napkin in the center.`) : null,
     ].filter(Boolean).join("");
 
+    // Two readings, and only one of them is the deacons'. Name the passage and the
+    // position explicitly so nobody stands up for the wrong one.
+    const sr = o.sermonReading || {};
+    const or = o.otherReading || {};
+    const srWho = sr.leader || o.reader;
     const during = [
-      o.reader ? li(`${strong("Scripture Reading")} — ${esc(o.reader)}. Deacons alternate reading; if it is your week and you cannot, arrange a reader.`) : li(`${strong("Scripture Reading")} — deacons alternate reading; if it is your week and you cannot, arrange a reader.`),
+      li(`${strong("Scripture Reading &mdash; yours, immediately before the sermon.")}${sr.reference ? ` ${strong(esc(sr.reference))}.` : ""}${srWho ? ` Read by ${esc(srWho)}.` : ""} Deacons alternate this reading; if it is your week and you cannot, arrange a reader.`),
+      (or.reference || or.leader)
+        ? li(`${strong("Other Testament Reading")} &mdash; ${or.reference ? esc(or.reference) + ", " : ""}earlier in the service${or.leader ? `, read by ${esc(or.leader)}` : ""}. Usually a staff member. ${strong("Not the deacons' reading.")}`)
+        : null,
       isCommunion ? li(`${strong("Communion")} — the Pastors lead: prayers, words of institution, and serving the bread. Two deacons serve the cup. One deacon takes a tray to those unable to process forward: members with limited mobility, and volunteers who cannot leave their posts (nursery, sound, security).`) : null,
       o.offeringCue
         ? li(`${strong("Offering")} — collected during ${strong("&ldquo;" + esc(o.offeringCue) + "&rdquo;")}, the first song after ${isCommunion ? "the Lord's Supper" : "the sermon"}. Watch the worship leader, not the clock.`)
@@ -1474,6 +1486,7 @@ Return ONLY valid JSON, no markdown, no backticks, no explanation.
 
 Schema:
 {
+  "serviceDate": "the service date printed on the plan, as 'Month D, YYYY', or null",
   "serviceTitle": "e.g. 'Promotion Sunday' or null",
   "isCommunion": true or false,
   "elements": [
@@ -1488,6 +1501,8 @@ Schema:
   "presiding": "full name or null",
   "reader": "full name or null",
   "preacher": "full name or null",
+  "sermonReading": { "reference": "passage or null", "leader": "full name or null" },
+  "otherReading": { "reference": "passage or null", "leader": "full name or null" },
   "praiseTeam": [ { "role": "Piano", "names": ["Julie Kirklin"] } ],
   "avTeam": [ { "role": "Sound Board", "names": ["Ward Head"] } ],
   "otherTeams": [ { "team": "Greeters", "role": "Main Entrance", "names": ["Ella Lemen"] } ],
@@ -1507,6 +1522,19 @@ DUPLICATED PASTES
 Copying a worship order from a web page often duplicates the whole plan two or more times
 in a row. If you see the same service repeated, extract it ONCE. Never emit the same
 element twice in a row, and never emit two identical rosters.
+
+THE TWO SCRIPTURE READINGS — keep them straight
+FBCM services normally contain two readings, and they are NOT interchangeable:
+1. The reading IMMEDIATELY BEFORE the sermon is the sermon passage. Element names vary
+   ("Scripture Reading", "Sermon Scripture Reading"). Put its passage and reader in
+   "sermonReading". This is the deacons' responsibility.
+2. Any EARLIER reading exists so both Testaments are heard — if the sermon text is Old
+   Testament this one is New Testament, and vice versa. Names vary ("Other Testament
+   Reading", "Secondary Reading"). Put its passage and reader in "otherReading". This is
+   usually a staff member and is NOT the deacons' reading.
+Set "reader" to the sermonReading leader. If a reading has no named leader in the plan,
+use null for that leader — never copy one reader across to the other reading.
+If the service has only one reading, populate sermonReading and leave otherReading null.
 
 MISSING INLINE LEADERS — infer from the roster
 Some plans leave the Leader column blank for most rows and put the names only in the
@@ -1588,6 +1616,26 @@ something is genuinely absent rather than guessing.`,
       });
       setOrder(applyStaffTitles(parsed));
       setBackMode("order");
+
+      // The worship plan is authoritative for the service date. Deriving it from the
+      // Wednesday Weekly ("next Sunday after the email") silently mislabels the sheet
+      // whenever the two are for different weeks.
+      if (parsed.serviceDate) {
+        const d = new Date(cleanDateStr(parsed.serviceDate));
+        if (!isNaN(d.getTime())) {
+          const planDate = formatMonthDayYear(d);
+          const derived = getNextSunday(data?.date);
+          setBackDate(planDate);
+          const mode = isFirstSundayOfMonth(planDate) ? "lords_supper" : "ways_to_respond";
+          setResponseMode(mode);
+          setResponseInstructions(getDefaultResponseInstructions(planDate));
+          if (derived && derived !== planDate) {
+            setDateWarning(`Heads up: the worship order is for ${planDate}, but the pasted Weekly points to ${derived}. Using ${planDate} from the plan.`);
+          } else {
+            setDateWarning("");
+          }
+        }
+      }
     } catch (e) {
       setError("Order of worship: " + (e.message || "Could not parse. Check the pasted text."));
       console.error(e);
@@ -1667,10 +1715,10 @@ Rules: include up to 9 most important announcements. Sermon block may be null. K
         textarea::placeholder { color: rgba(240,236,226,0.55); }
         .gen-btn { background: ${GOLD}; color: #fff; border: none; border-radius: 5px; padding: 11px; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer; font-family: inherit; transition: opacity 0.18s; }
         .gen-btn:hover:not(:disabled) { opacity: 0.85; }
-        .gen-btn:disabled { opacity: 0.4; cursor: default; }
-        .print-btn { background: transparent; border: 1px solid rgba(181,146,58,0.4); color: ${GOLD}; border-radius: 5px; padding: 9px; font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; cursor: pointer; font-family: inherit; transition: background 0.18s; }
+        .gen-btn:disabled { opacity: 0.55; cursor: default; }
+        .print-btn { background: transparent; border: 1px solid rgba(181,146,58,0.55); color: #e8dcc0; border-radius: 5px; padding: 9px; font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; cursor: pointer; font-family: inherit; transition: background 0.18s; }
         .print-btn:hover { background: rgba(181,146,58,0.08); }
-        .print-btn:disabled { opacity: 0.3; cursor: default; }
+        .print-btn:disabled { opacity: 0.5; cursor: default; }
         .hint { font-size: 10px; color: rgba(240,236,226,0.72); line-height: 1.6; }
         .err { background: rgba(220,60,60,0.14); border: 1px solid rgba(220,60,60,0.28); color: #f87171; font-size: 11px; padding: 8px 10px; border-radius: 4px; line-height: 1.5; }
         .right { flex: 1; background: #22223b; overflow: auto; padding: 28px 32px; display: flex; flex-direction: column; gap: 10px; }
@@ -1679,6 +1727,8 @@ Rules: include up to 9 most important announcements. Sermon block may be null. K
         .page-label { font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(181,146,58,0.95); font-weight: 700; margin-bottom: 4px; }
         .preview-row { display: flex; flex-direction: column; gap: 4px; margin-bottom: 24px; }
         .preview-scaled { height: 440px; overflow: hidden; }
+        .preview-scaled.tall { height: 575px; }
+        .preview-single { transform: scale(0.52); transform-origin: top left; }
         .preview-wrap { display: flex; align-items: flex-start; transform: scale(0.52); transform-origin: top left; }
         .cut { border-left: 2px dashed rgba(255,255,255,0.15); align-self: stretch; }
         .empty { width: 360px; background: rgba(255,255,255,0.03); border: 1px dashed rgba(255,255,255,0.07); border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 56px 32px; gap: 8px; color: rgba(240,236,226,0.6); text-align: center; }
@@ -1719,7 +1769,7 @@ Rules: include up to 9 most important announcements. Sermon block may be null. K
           .topbar, .left, .rlbl, .rnote, .page-label { display: none !important; }
           .shell, .right { background: white !important; }
           .right { padding: 0 !important; overflow: visible !important; }
-          .preview-wrap { transform: none !important; }
+          .preview-wrap, .preview-single { transform: none !important; }
           .cut { display: none !important; }
           @page { size: 11in 8.5in landscape; margin: 0; }
         }
@@ -1842,6 +1892,16 @@ Rules: include up to 9 most important announcements. Sermon block may be null. K
                   </div>
 
                   {/* ── Back page: sermon notes vs order of worship ── */}
+                  {dateWarning && (
+                    <div style={{
+                      background: "rgba(200,150,40,0.16)", border: "1px solid rgba(200,150,40,0.5)",
+                      borderRadius: "4px", padding: "8px 10px", marginBottom: "10px",
+                      fontSize: "10.5px", lineHeight: 1.5, color: "#f2e6c8",
+                    }}>
+                      ⚠ {dateWarning}
+                    </div>
+                  )}
+
                   <div className="edit-field">
                     <label className="edit-label">Back page shows</label>
                     <select
@@ -1863,10 +1923,10 @@ Rules: include up to 9 most important announcements. Sermon block may be null. K
                     <div className="edit-field">
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
                         <label className="edit-label" style={{ margin: 0 }}>
-                          Order of Worship {!order && <span style={{ color: GOLD }}>— needed for Who's Serving</span>}
+                          Order of Worship {!order && <span style={{ color: "#d8c48a" }}>— needed for Who's Serving</span>}
                         </label>
                         <button
-                          style={{ fontSize: "9px", padding: "2px 7px", cursor: "pointer", background: "rgba(181,146,58,0.15)", border: "1px solid rgba(181,146,58,0.35)", color: "#292854", borderRadius: "3px", flexShrink: 0 }}
+                          style={{ fontSize: "9px", padding: "2px 7px", cursor: "pointer", background: "rgba(181,146,58,0.15)", border: "1px solid rgba(181,146,58,0.35)", color: "#f0ece2", borderRadius: "3px", flexShrink: 0 }}
                           onClick={() => { addOrderRow(); setOrderEditorOpen(true); }}
                         >+ Add element</button>
                       </div>
@@ -1964,7 +2024,7 @@ Rules: include up to 9 most important announcements. Sermon block may be null. K
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
                       <label className="edit-label" style={{ margin: 0 }}>Response Instructions</label>
                       <button
-                        style={{ fontSize: "9px", padding: "2px 7px", cursor: "pointer", background: "rgba(181,146,58,0.15)", border: "1px solid rgba(181,146,58,0.35)", color: "#292854", borderRadius: "3px", flexShrink: 0 }}
+                        style={{ fontSize: "9px", padding: "2px 7px", cursor: "pointer", background: "rgba(181,146,58,0.15)", border: "1px solid rgba(181,146,58,0.35)", color: "#f0ece2", borderRadius: "3px", flexShrink: 0 }}
                         onClick={() => {
                           setResponseInstructions(
                             responseMode === "lords_supper"
@@ -2012,7 +2072,7 @@ Rules: include up to 9 most important announcements. Sermon block may be null. K
 
                 {driveLinks && (
                   <div style={{ background: "rgba(181,146,58,0.10)", border: "1px solid rgba(181,146,58,0.35)", borderRadius: "5px", padding: "9px 10px", fontSize: "10px", lineHeight: 1.5 }}>
-                    <div style={{ fontWeight: 700, color: GOLD, letterSpacing: "0.08em", textTransform: "uppercase", fontSize: "9px", marginBottom: "5px" }}>
+                    <div style={{ fontWeight: 700, color: "#d8c48a", letterSpacing: "0.08em", textTransform: "uppercase", fontSize: "9px", marginBottom: "5px" }}>
                       Permanent links — set these once
                     </div>
                     <div style={{ color: "rgba(240,236,226,0.85)", marginBottom: "6px" }}>
@@ -2133,8 +2193,8 @@ Rules: include up to 9 most important announcements. Sermon block may be null. K
                     <div className="page-label">
                       ▸ Who's Serving Today — separate 8.5″ × 11″ page (not printed with the bulletin)
                     </div>
-                    <div className="preview-scaled">
-                      <div dangerouslySetInnerHTML={{ __html: buildServingPageHTML() }} />
+                    <div className="preview-scaled tall">
+                      <div className="preview-single" dangerouslySetInnerHTML={{ __html: buildServingPageHTML() }} />
                     </div>
                   </div>
                 )}
