@@ -1806,14 +1806,20 @@ Rules: include up to 9 most important announcements. Sermon block may be null. K
                       style={{ cursor: "pointer" }}
                     >
                       <option value="notes">Sermon Notes (note-taking lines)</option>
-                      <option value="order">Order of Worship (elements &amp; leaders)</option>
+                      <option value="order" disabled={!order}>
+                        Order of Worship {order ? "(elements & leaders)" : "— paste one below first"}
+                      </option>
                     </select>
                   </div>
 
-                  {backMode === "order" && (
+                  {/* Always visible: this is the input for BOTH the order of worship
+                      and the Who's Serving sheet, so it must not hide behind the toggle. */}
+                  {(
                     <div className="edit-field">
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
-                        <label className="edit-label" style={{ margin: 0 }}>Order of Worship</label>
+                        <label className="edit-label" style={{ margin: 0 }}>
+                          Order of Worship {!order && <span style={{ color: GOLD }}>— needed for Who's Serving</span>}
+                        </label>
                         <button
                           style={{ fontSize: "9px", padding: "2px 7px", cursor: "pointer", background: "rgba(181,146,58,0.15)", border: "1px solid rgba(181,146,58,0.35)", color: "#292854", borderRadius: "3px", flexShrink: 0 }}
                           onClick={addOrderRow}
@@ -1825,7 +1831,7 @@ Rules: include up to 9 most important announcements. Sermon block may be null. K
                         rows={4}
                         value={orderInput}
                         onChange={e => setOrderInput(e.target.value)}
-                        placeholder="Paste the worship outline from ChurchTrac (or Planning Center, or an email) here, then click Extract. Praise team members are collapsed to one line automatically."
+                        placeholder="Paste the worship order here (ChurchTrac, Planning Center, or the emailed plan), then click Extract. This fills BOTH the order of worship on the back page and the Who's Serving sheet."
                         style={{ fontSize: "10px", lineHeight: 1.5 }}
                       />
                       <button
@@ -2057,6 +2063,28 @@ Rules: include up to 9 most important announcements. Sermon block may be null. K
                     </div>
                   </div>
                 </div>
+
+                {/* Who's Serving — separate sheet, so preview it separately.
+                    Rendered from the same HTML the PDF export uses. */}
+                {order && (() => {
+                  const pages = buildDeaconCardHTML()
+                    .split(/<div class="pg">/).slice(1)
+                    .map(chunk => chunk.split(/<div class="div">/)[0]);
+                  return pages.map((pageHtml, i) => (
+                    <div className="preview-row" key={i}>
+                      <div className="page-label">
+                        ▸ Who's Serving — {i === 0 ? "Page 1 (Deacons)" : "Page 2 (All Teams)"} · separate sheet
+                      </div>
+                      <div className="preview-scaled">
+                        <div className="preview-wrap">
+                          <div dangerouslySetInnerHTML={{ __html: pageHtml }} />
+                          <div className="cut" />
+                          <div dangerouslySetInnerHTML={{ __html: pageHtml }} />
+                        </div>
+                      </div>
+                    </div>
+                  ));
+                })()}
               </>
             )}
           </div>
