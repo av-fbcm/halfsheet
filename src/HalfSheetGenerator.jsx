@@ -157,6 +157,11 @@ const STAFF_TITLES = {
 // Who's Serving sheet. Flip to true to show them on the half-sheet too.
 const SUFFIX_ON_HALFSHEET = false;
 
+// Offering collection isn't in the worship plan's roster, so it lives here.
+// Edit these two lines if the lead or the contacts change.
+const OFFERING_LEAD = "Terry Harke";
+const OFFERING_CONTACTS = ["Terry Harke", "Dick Flaherty"];
+
 // Add a title to a single bare name. Idempotent — never double-prefixes.
 function titleOne(name, { useSuffix = true } = {}) {
   const bare = String(name || "").trim();
@@ -1107,15 +1112,15 @@ ${bodyWrap(pageTable(frontCell) + pageTable(backCell))}
   // Not for the congregation. Printed for the deacons serving that Sunday.
   // Procedure text is from the FBCM Deacon Handbook (2024 update); the names,
   // cues, and communion flag come from the pasted worship plan.
-  function buildDeaconCardHTML() {
+  function buildServingPageHTML() {
     const o = order || {};
     const isCommunion = !!o.isCommunion;
     const deacons = (o.deacons || []).filter(Boolean);
     const dateStr = backDate || getNextSunday(data?.date) || "";
     const esc = s => String(s == null ? "" : s);
 
-    const h = (label) => `<div style="font-size:9px;letter-spacing:0.14em;text-transform:uppercase;color:${GOLD};font-family:Arial,sans-serif;font-weight:bold;margin:11px 0 5px;border-bottom:0.5px solid #e8e0d0;padding-bottom:2px;">${label}</div>`;
-    const li = (t) => `<div style="font-size:9.5px;line-height:1.45;color:#222;margin-bottom:4px;padding-left:11px;text-indent:-11px;">• ${t}</div>`;
+    const h = (label) => `<div style="font-size:10.5px;letter-spacing:0.14em;text-transform:uppercase;color:${GOLD};font-family:Arial,sans-serif;font-weight:bold;margin:11px 0 5px;border-bottom:0.5px solid #e8e0d0;padding-bottom:2px;">${label}</div>`;
+    const li = (t) => `<div style="font-size:11.5px;line-height:1.45;color:#222;margin-bottom:4px;padding-left:11px;text-indent:-11px;">• ${t}</div>`;
     const strong = t => `<strong>${t}</strong>`;
 
     const roleLine = [
@@ -1146,39 +1151,20 @@ ${bodyWrap(pageTable(frontCell) + pageTable(backCell))}
       li(`${strong("Visit within one week.")} If you cannot, trade with another deacon or schedule another time this month — the elements are perishable and you may have to supply your own.`),
     ].join("") : li(`Reset anything you moved; check with the presiding leader before you leave.`);
 
-    const body = `
-      <div class="halfpage" style="width:5.5in;height:8.5in;background:white;box-sizing:border-box;font-family:Georgia,serif;color:#1a1a2e;overflow:hidden;">
-        <div style="padding:0.4in 0.45in 0.32in;box-sizing:border-box;display:flex;flex-direction:column;height:100%;">
-          <div style="text-align:center;margin-bottom:7px;">
-            <div style="font-size:15px;font-weight:bold;font-family:Arial,sans-serif;letter-spacing:0.05em;">SERVING TODAY</div>
-            <div style="font-size:10px;color:${GOLD};font-family:Arial,sans-serif;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;margin-top:1px;">Deacons${isCommunion ? " &mdash; Communion Sunday" : ""}</div>
-            <div style="font-size:9px;color:#666;font-family:Arial,sans-serif;font-style:italic;margin-top:3px;">${esc(dateStr)}${o.serviceTitle ? " &nbsp;·&nbsp; " + esc(o.serviceTitle) : ""}</div>
-          </div>
-          <div style="border-top:1.5px solid ${GOLD};margin-bottom:8px;"></div>
+    const deaconColumn = `
+      ${deacons.length ? `
+        <div style="background:#fdf8f0;border:1px solid ${GOLD};border-left:4px solid ${GOLD};padding:7px 10px;margin-bottom:6px;">
+          <div style="font-size:9.5px;letter-spacing:0.14em;text-transform:uppercase;color:${GOLD};font-family:Arial,sans-serif;font-weight:bold;margin-bottom:3px;">Deacons Serving</div>
+          <div style="font-size:14px;font-weight:bold;line-height:1.4;">${deacons.map(esc).join(" &nbsp;·&nbsp; ")}</div>
+        </div>` : ""}
+      ${h("Before Worship")}${before}
+      ${h("During Worship")}${during}
+      ${h("After Worship")}${after}`;
 
-          ${deacons.length ? `
-            <div style="background:#fdf8f0;border:1px solid ${GOLD};border-left:4px solid ${GOLD};padding:6px 9px;margin-bottom:4px;">
-              <div style="font-size:8px;letter-spacing:0.14em;text-transform:uppercase;color:${GOLD};font-family:Arial,sans-serif;font-weight:bold;margin-bottom:3px;">Deacons Serving</div>
-              <div style="font-size:11px;font-weight:bold;line-height:1.4;">${deacons.map(esc).join(" &nbsp;·&nbsp; ")}</div>
-            </div>` : ""}
-          ${roleLine ? `<div style="font-size:9px;color:#444;font-family:Arial,sans-serif;line-height:1.6;margin-bottom:2px;">${roleLine}</div>` : ""}
-
-          ${h("Before Worship")}${before}
-          ${h("During Worship")}${during}
-          ${h("After Worship")}${after}
-
-          <div style="flex:1;"></div>
-          <div style="border-top:0.5px solid #ddd;padding-top:5px;font-size:7.5px;color:#999;font-family:Arial,sans-serif;display:flex;justify-content:space-between;">
-            <span>FBC Muncie &mdash; Deacon Handbook (2024)</span>
-            <span>Questions? Ask the Deacon Chair or a Pastor.</span>
-          </div>
-        </div>
-      </div>`;
-
-    // ── Page 2: the rest of the teams serving ────────────────────────────────
+    // ── The rest of the teams serving ────────────────────────────────────────
     const roleBlock = (rows) => rows.filter(r => r && (r.names || []).length).map(r => `
-      <div style="display:flex;align-items:baseline;gap:5px;margin-bottom:3px;font-size:9.5px;line-height:1.35;">
-        <span style="color:#555;font-family:Arial,sans-serif;font-size:8.5px;white-space:nowrap;">${esc(r.role)}</span>
+      <div style="display:flex;align-items:baseline;gap:5px;margin-bottom:3px;font-size:11.5px;line-height:1.35;">
+        <span style="color:#555;font-family:Arial,sans-serif;font-size:10px;white-space:nowrap;">${esc(r.role)}</span>
         <span style="flex:1;border-bottom:0.5px dotted #ddd;min-width:8px;"></span>
         <span style="font-weight:bold;color:#1a1a2e;text-align:right;">${(r.names || []).map(esc).join(" &nbsp;·&nbsp; ")}</span>
       </div>`).join("");
@@ -1189,48 +1175,77 @@ ${bodyWrap(pageTable(frontCell) + pageTable(backCell))}
     const byTeam = {};
     others.forEach(r => { if (!r) return; (byTeam[r.team || "Also Serving"] ||= []).push(r); });
 
-    const body2 = `
-      <div class="halfpage" style="width:5.5in;height:8.5in;background:white;box-sizing:border-box;font-family:Georgia,serif;color:#1a1a2e;overflow:hidden;">
-        <div style="padding:0.4in 0.45in 0.32in;box-sizing:border-box;display:flex;flex-direction:column;height:100%;">
-          <div style="text-align:center;margin-bottom:7px;">
-            <div style="font-size:15px;font-weight:bold;font-family:Arial,sans-serif;letter-spacing:0.05em;">WHO'S SERVING</div>
-            <div style="font-size:9px;color:#666;font-family:Arial,sans-serif;font-style:italic;margin-top:3px;">${esc(dateStr)}${o.serviceTitle ? " &nbsp;·&nbsp; " + esc(o.serviceTitle) : ""}</div>
+    const teamsColumn = `
+      ${pt.length ? h("Praise Team") + roleBlock(pt) + `
+        <div style="margin-top:5px;background:#fdf8f0;border-left:3px solid ${GOLD};padding:5px 8px;font-size:10px;color:#444;font-family:Arial,sans-serif;line-height:1.4;">
+          <strong>Praise Team Practice &mdash; Thursday, 6:30 PM.</strong> Choir and other specials rehearse separately.
+        </div>` : ""}
+      ${av.length ? h("Audio / Visual Team") + roleBlock(av) : ""}
+      ${Object.keys(byTeam).map(t => h(t) + roleBlock(byTeam[t])).join("")}`;
+
+    // ── Offering: its own highlighted block. The timing is what people get wrong,
+    //    so lead with the actual song name for this specific Sunday.
+    const offeringWhen = o.offeringCue
+      ? `Collected during <strong>&ldquo;${esc(o.offeringCue)}&rdquo;</strong> &mdash; the song ${isCommunion ? "after the Lord's Supper" : "after the sermon"}.`
+      : `Collected during the song ${isCommunion ? "after the Lord's Supper" : "after the sermon"}. Confirm the title with the presiding leader before the service.`;
+
+    const offeringBlock = `
+      <div style="background:#fdf8f0;border:1px solid ${GOLD};border-left:4px solid ${GOLD};padding:8px 11px;margin-top:10px;">
+        <div style="font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:${GOLD};font-family:Arial,sans-serif;font-weight:bold;margin-bottom:4px;">Offering</div>
+        <div style="font-size:12px;color:#222;line-height:1.5;margin-bottom:3px;">${offeringWhen}</div>
+        <div style="font-size:11.5px;color:#333;font-family:Arial,sans-serif;line-height:1.5;">
+          Generally led by <strong>${esc(OFFERING_LEAD)}</strong>; those collecting vary week to week.
+        </div>
+        <div style="font-size:10.5px;color:#555;font-family:Arial,sans-serif;line-height:1.5;margin-top:3px;">
+          Questions about helping collect the offering? Contact ${OFFERING_CONTACTS.map(esc).join(" or ")}.
+        </div>
+      </div>`;
+
+    // ── One portrait letter page. Deacon duties left, everyone serving right.
+    //    No duplication: this is linked from the Weekly, not printed in a stack.
+    const page = `
+      <div class="fullpage" style="width:8.5in;height:11in;background:white;box-sizing:border-box;font-family:Georgia,serif;color:#1a1a2e;overflow:hidden;">
+        <div style="padding:0.5in 0.55in 0.4in;box-sizing:border-box;display:flex;flex-direction:column;height:100%;">
+          <div style="text-align:center;margin-bottom:8px;">
+            <div style="font-size:23px;font-weight:bold;font-family:Arial,sans-serif;letter-spacing:0.05em;">WHO'S SERVING SUNDAY</div>
+            <div style="font-size:12.5px;color:${GOLD};font-family:Arial,sans-serif;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;margin-top:2px;">
+              First Baptist Muncie${isCommunion ? " &mdash; Communion Sunday" : ""}
+            </div>
+            <div style="font-size:11.5px;color:#666;font-family:Arial,sans-serif;font-style:italic;margin-top:4px;">${esc(dateStr)}${o.serviceTitle ? " &nbsp;·&nbsp; " + esc(o.serviceTitle) : ""}</div>
           </div>
-          <div style="border-top:1.5px solid ${GOLD};margin-bottom:6px;"></div>
+          <div style="border-top:1.5px solid ${GOLD};margin-bottom:9px;"></div>
 
-          ${roleLine ? `<div style="font-size:9.5px;color:#333;font-family:Arial,sans-serif;line-height:1.7;margin-bottom:2px;">${roleLine}</div>` : ""}
-          ${deacons.length ? `<div style="font-size:9.5px;color:#333;font-family:Arial,sans-serif;line-height:1.7;">Deacons: ${strong(deacons.map(esc).join(" &nbsp;·&nbsp; "))}</div>` : ""}
+          ${roleLine ? `<div style="font-size:12.5px;color:#333;font-family:Arial,sans-serif;line-height:1.7;margin-bottom:8px;text-align:center;">${roleLine}</div>` : ""}
 
-          ${pt.length ? h("Praise Team") + roleBlock(pt) + `
-            <div style="margin-top:5px;background:#fdf8f0;border-left:3px solid ${GOLD};padding:5px 8px;font-size:8.5px;color:#444;font-family:Arial,sans-serif;line-height:1.4;">
-              <strong>Praise Team Practice &mdash; Thursday, 6:30 PM.</strong> Choir and other specials rehearse separately.
-            </div>` : ""}
+          <div style="display:flex;gap:26px;align-items:flex-start;">
+            <div style="flex:1;min-width:0;">${deaconColumn}</div>
+            <div style="width:1px;background:#e8e0d0;align-self:stretch;"></div>
+            <div style="flex:1;min-width:0;">${teamsColumn}</div>
+          </div>
 
-          ${av.length ? h("Audio / Visual Team") + roleBlock(av) : ""}
-
-          ${Object.keys(byTeam).map(t => h(t) + roleBlock(byTeam[t])).join("")}
+          ${offeringBlock}
 
           <div style="flex:1;"></div>
-          <div style="border-top:0.5px solid #ddd;padding-top:5px;font-size:7.5px;color:#999;font-family:Arial,sans-serif;display:flex;justify-content:space-between;">
+          <div style="border-top:0.5px solid #ddd;padding-top:6px;font-size:9.5px;color:#999;font-family:Arial,sans-serif;display:flex;justify-content:space-between;">
             <span>First Baptist Church Muncie</span>
             <span>Thank you for serving.</span>
           </div>
         </div>
       </div>`;
 
-    const hasPage2 = pt.length || av.length || others.length;
+    return page;
+  }
 
+  // Wrap the page in a printable document. Kept separate so the on-screen preview
+  // can render the same markup without slicing strings out of a full HTML file.
+  function buildDeaconCardHTML() {
     return `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Who's Serving Sunday</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0;}
   body{background:white;font-family:Georgia,serif;}
-  @page{size:11in 8.5in landscape;margin:0;}
-  .pg{display:flex;width:11in;height:8.5in;}
-  .div{width:1px;border-left:1px dashed #bbb;}
-  @media print{ .pg{page-break-after:always;} }
+  @page{size:8.5in 11in portrait;margin:0;}
 </style></head><body>
-<div class="pg">${body}<div class="div"></div>${body}</div>
-${hasPage2 ? `<div class="pg">${body2}<div class="div"></div>${body2}</div>` : ""}
+${buildServingPageHTML()}
 ${FIT_SCRIPT}
 </body></html>`;
   }
@@ -1253,7 +1268,7 @@ ${FIT_SCRIPT}
   // long order of worship silently drops the footer (and the QR code) off the page.
   const FIT_SCRIPT = `<script>(function(){
   function fit(){
-    var pages = document.querySelectorAll('.halfpage');
+    var pages = document.querySelectorAll('.halfpage, .fullpage');
     for (var i=0;i<pages.length;i++){
       var outer = pages[i], inner = outer.firstElementChild;
       if(!inner) continue;
@@ -1276,11 +1291,11 @@ ${FIT_SCRIPT}
     return html.replace(/<script>window\.onload[\s\S]*?<\/script>/gi, "");
   }
 
-  async function htmlToPdfBlob(html) {
+  async function htmlToPdfBlob(html, { landscape = true } = {}) {
     if (!window.electronAPI?.htmlToPdf) {
       throw new Error("PDF export needs the desktop app. In the browser, use Download Print File and choose “Save as PDF” in the print dialog.");
     }
-    const b64 = await window.electronAPI.htmlToPdf({ html: stripAutoPrint(html), landscape: true });
+    const b64 = await window.electronAPI.htmlToPdf({ html: stripAutoPrint(html), landscape });
     const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
     return new Blob([bytes], { type: "application/pdf" });
   }
@@ -1319,7 +1334,7 @@ ${FIT_SCRIPT}
     if (!order) return;
     setServingPdfStatus("saving");
     try {
-      const blob = await htmlToPdfBlob(buildDeaconCardHTML());
+      const blob = await htmlToPdfBlob(buildDeaconCardHTML(), { landscape: false });
       triggerDownload(blob, `${cleanDateSlug()} Who's Serving Sunday.pdf`);
       setServingPdfStatus("done"); setTimeout(() => setServingPdfStatus("idle"), 4000);
     } catch (e) {
@@ -1416,7 +1431,7 @@ ${FIT_SCRIPT}
       await upsertDrivePdf(token, `${slug} ${HALFSHEET_FILENAME}`, halfSheetPdf, archiveId);
 
       if (order) {
-        const servingPdf = await htmlToPdfBlob(buildDeaconCardHTML());
+        const servingPdf = await htmlToPdfBlob(buildDeaconCardHTML(), { landscape: false });
         links.serving = await upsertDrivePdf(token, SERVING_FILENAME, servingPdf);
         await upsertDrivePdf(token, `${slug} ${SERVING_FILENAME}`, servingPdf, archiveId);
       }
@@ -1641,28 +1656,32 @@ Rules: include up to 9 most important announcements. Sermon block may be null. K
         .badge { background: ${GOLD}; color: #fff; font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; padding: 3px 8px; border-radius: 2px; }
         .title { font-family: 'Playfair Display', serif; font-size: 19px; color: #f0ece2; }
         .body { flex: 1; display: flex; min-height: 0; }
-        .left { width: 300px; min-width: 260px; flex-shrink: 0; background: #13132a; border-right: 1px solid rgba(255,255,255,0.06); display: flex; flex-direction: column; padding: 18px 16px; gap: 12px; overflow-y: auto; }
-        .lbl { font-size: 9.5px; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(240,236,226,0.4); font-weight: 600; }
-        textarea { flex: 1; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.09); border-radius: 5px; color: #f0ece2; font-size: 12px; line-height: 1.6; padding: 10px; resize: none; font-family: inherit; outline: none; min-height: 280px; }
+        .left { width: 300px; min-width: 260px; flex-shrink: 0; background: #13132a; border-right: 1px solid rgba(255,255,255,0.06); display: flex; flex-direction: column; padding: 18px 16px; gap: 12px; overflow-y: auto; overscroll-behavior: contain; }
+        .lbl { font-size: 9.5px; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(240,236,226,0.75); font-weight: 600; }
+        /* Base styling only. flex/min-height live on .main-paste — this rule used to
+           apply 280px to every textarea in the app, which made the rail thousands of
+           pixels tall once edit mode added more of them. */
+        textarea { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.09); border-radius: 5px; color: #f0ece2; font-size: 12px; line-height: 1.6; padding: 10px; resize: none; font-family: inherit; outline: none; overscroll-behavior: contain; }
+        .main-paste { flex: 1; min-height: 280px; }
         textarea:focus { border-color: rgba(181,146,58,0.45); }
-        textarea::placeholder { color: rgba(240,236,226,0.22); }
+        textarea::placeholder { color: rgba(240,236,226,0.55); }
         .gen-btn { background: ${GOLD}; color: #fff; border: none; border-radius: 5px; padding: 11px; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer; font-family: inherit; transition: opacity 0.18s; }
         .gen-btn:hover:not(:disabled) { opacity: 0.85; }
         .gen-btn:disabled { opacity: 0.4; cursor: default; }
         .print-btn { background: transparent; border: 1px solid rgba(181,146,58,0.4); color: ${GOLD}; border-radius: 5px; padding: 9px; font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; cursor: pointer; font-family: inherit; transition: background 0.18s; }
         .print-btn:hover { background: rgba(181,146,58,0.08); }
         .print-btn:disabled { opacity: 0.3; cursor: default; }
-        .hint { font-size: 10px; color: rgba(240,236,226,0.3); line-height: 1.6; }
+        .hint { font-size: 10px; color: rgba(240,236,226,0.72); line-height: 1.6; }
         .err { background: rgba(220,60,60,0.14); border: 1px solid rgba(220,60,60,0.28); color: #f87171; font-size: 11px; padding: 8px 10px; border-radius: 4px; line-height: 1.5; }
         .right { flex: 1; background: #22223b; overflow: auto; padding: 28px 32px; display: flex; flex-direction: column; gap: 10px; }
-        .rlbl { font-size: 9.5px; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(240,236,226,0.3); font-weight: 600; }
-        .rnote { font-size: 10px; color: rgba(240,236,226,0.22); font-style: italic; }
-        .page-label { font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(181,146,58,0.6); font-weight: 700; margin-bottom: 4px; }
+        .rlbl { font-size: 9.5px; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(240,236,226,0.72); font-weight: 600; }
+        .rnote { font-size: 10px; color: rgba(240,236,226,0.62); font-style: italic; }
+        .page-label { font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(181,146,58,0.95); font-weight: 700; margin-bottom: 4px; }
         .preview-row { display: flex; flex-direction: column; gap: 4px; margin-bottom: 24px; }
         .preview-scaled { height: 440px; overflow: hidden; }
         .preview-wrap { display: flex; align-items: flex-start; transform: scale(0.52); transform-origin: top left; }
         .cut { border-left: 2px dashed rgba(255,255,255,0.15); align-self: stretch; }
-        .empty { width: 360px; background: rgba(255,255,255,0.03); border: 1px dashed rgba(255,255,255,0.07); border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 56px 32px; gap: 8px; color: rgba(240,236,226,0.2); text-align: center; }
+        .empty { width: 360px; background: rgba(255,255,255,0.03); border: 1px dashed rgba(255,255,255,0.07); border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 56px 32px; gap: 8px; color: rgba(240,236,226,0.6); text-align: center; }
         .spin { width: 22px; height: 22px; border: 3px solid rgba(181,146,58,0.2); border-top-color: ${GOLD}; border-radius: 50%; animation: spin 0.75s linear infinite; margin: 0 auto 8px; }
         @keyframes spin { to { transform: rotate(360deg); } }
         .drive-btn { background: #1a73e8; color: #fff; border: none; border-radius: 5px; padding: 9px; font-size: 12px; font-weight: 600; letter-spacing: 0.04em; cursor: pointer; font-family: inherit; transition: opacity 0.18s; display: flex; align-items: center; justify-content: center; gap: 7px; }
@@ -1677,13 +1696,13 @@ Rules: include up to 9 most important announcements. Sermon block may be null. K
         .edit-section-head { font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase; color: ${GOLD}; font-weight: 700; border-bottom: 1px solid rgba(181,146,58,0.22); padding-bottom: 4px; margin: 14px 0 8px; }
         .edit-section-head:first-child { margin-top: 0; }
         .edit-field { margin-bottom: 8px; }
-        .edit-label { display: block; font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(240,236,226,0.38); font-weight: 600; margin-bottom: 3px; }
+        .edit-label { display: block; font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(240,236,226,0.7); font-weight: 600; margin-bottom: 3px; }
         .edit-input { width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.09); border-radius: 4px; color: #f0ece2; font-size: 11.5px; padding: 6px 8px; font-family: inherit; outline: none; resize: vertical; line-height: 1.5; }
         .edit-input:focus { border-color: rgba(181,146,58,0.5); background: rgba(255,255,255,0.07); }
-        .edit-input::placeholder { color: rgba(240,236,226,0.2); }
+        .edit-input::placeholder { color: rgba(240,236,226,0.55); }
         .ann-card { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 5px; padding: 9px 10px; margin-bottom: 7px; }
         .ann-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 7px; }
-        .ann-card-label { font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(240,236,226,0.3); font-weight: 600; }
+        .ann-card-label { font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(240,236,226,0.7); font-weight: 600; }
         .ann-card-label span { color: ${GOLD}; margin-left: 4px; }
         .ann-card-actions { display: flex; gap: 3px; align-items: center; }
         .ann-icon-btn { background: none; border: none; cursor: pointer; font-size: 12px; padding: 1px 4px; border-radius: 3px; line-height: 1; transition: background 0.12s; }
@@ -1996,7 +2015,7 @@ Rules: include up to 9 most important announcements. Sermon block may be null. K
                     <div style={{ fontWeight: 700, color: GOLD, letterSpacing: "0.08em", textTransform: "uppercase", fontSize: "9px", marginBottom: "5px" }}>
                       Permanent links — set these once
                     </div>
-                    <div style={{ color: "rgba(240,236,226,0.65)", marginBottom: "6px" }}>
+                    <div style={{ color: "rgba(240,236,226,0.85)", marginBottom: "6px" }}>
                       These URLs stay the same every week. Paste them into the Wednesday Weekly buttons one time.
                     </div>
                     {[["Wednesday Weekly / Worship Order Halfsheet", driveLinks.halfSheet],
@@ -2006,7 +2025,7 @@ Rules: include up to 9 most important announcements. Sermon block may be null. K
                         const url = `https://drive.google.com/file/d/${id}/view`;
                         return (
                           <div key={id} style={{ marginBottom: "6px" }}>
-                            <div style={{ color: "rgba(240,236,226,0.85)", fontWeight: 600, marginBottom: "2px" }}>{label}</div>
+                            <div style={{ color: "rgba(240,236,226,0.97)", fontWeight: 600, marginBottom: "2px" }}>{label}</div>
                             <div style={{ display: "flex", gap: "5px", alignItems: "center" }}>
                               <input readOnly value={url} onFocus={e => e.target.select()}
                                 style={{ flex: 1, fontSize: "9px", fontFamily: "monospace", padding: "3px 5px", borderRadius: "3px", border: "1px solid rgba(255,255,255,0.15)", background: "rgba(0,0,0,0.25)", color: "#f0ece2" }} />
@@ -2016,7 +2035,7 @@ Rules: include up to 9 most important announcements. Sermon block may be null. K
                           </div>
                         );
                       })}
-                    <div style={{ color: "rgba(240,236,226,0.45)", fontSize: "9px", marginTop: "2px" }}>
+                    <div style={{ color: "rgba(240,236,226,0.72)", fontSize: "9px", marginTop: "2px" }}>
                       The Drive folder must be shared as “Anyone with the link — Viewer.”
                     </div>
                   </div>
@@ -2051,6 +2070,7 @@ Rules: include up to 9 most important announcements. Sermon block may be null. K
                 {/* ── Paste mode (original UI) ── */}
                 <span className="lbl">Weekly News Content</span>
                 <textarea
+                  className="main-paste"
                   placeholder={"Paste your Wednesday Weekly email or news content here...\n\nClaude will extract the sermon, announcements, dates, locations, and sign-up info automatically."}
                   value={input}
                   onChange={e => setInput(e.target.value)}
@@ -2071,14 +2091,14 @@ Rules: include up to 9 most important announcements. Sermon block may be null. K
             {!loading && !data && (
               <div className="empty">
                 <div style={{ fontSize: "36px" }}>📋</div>
-                <div style={{ fontSize: "12px", fontWeight: 600, color: "rgba(240,236,226,0.28)" }}>No content yet</div>
+                <div style={{ fontSize: "12px", fontWeight: 600, color: "rgba(240,236,226,0.65)" }}>No content yet</div>
                 <div style={{ fontSize: "11px" }}>Paste your Wednesday Weekly and click Generate</div>
               </div>
             )}
             {loading && (
               <div className="empty">
                 <div className="spin" />
-                <div style={{ fontSize: "12px", fontWeight: 600, color: "rgba(240,236,226,0.28)" }}>Generating…</div>
+                <div style={{ fontSize: "12px", fontWeight: 600, color: "rgba(240,236,226,0.65)" }}>Generating…</div>
                 <div style={{ fontSize: "11px" }}>Extracting announcements</div>
               </div>
             )}
@@ -2108,25 +2128,16 @@ Rules: include up to 9 most important announcements. Sermon block may be null. K
 
                 {/* Who's Serving — separate sheet, so preview it separately.
                     Rendered from the same HTML the PDF export uses. */}
-                {order && (() => {
-                  const pages = buildDeaconCardHTML()
-                    .split(/<div class="pg">/).slice(1)
-                    .map(chunk => chunk.split(/<div class="div">/)[0]);
-                  return pages.map((pageHtml, i) => (
-                    <div className="preview-row" key={i}>
-                      <div className="page-label">
-                        ▸ Who's Serving — {i === 0 ? "Page 1 (Deacons)" : "Page 2 (All Teams)"} · separate sheet
-                      </div>
-                      <div className="preview-scaled">
-                        <div className="preview-wrap">
-                          <div dangerouslySetInnerHTML={{ __html: pageHtml }} />
-                          <div className="cut" />
-                          <div dangerouslySetInnerHTML={{ __html: pageHtml }} />
-                        </div>
-                      </div>
+                {order && (
+                  <div className="preview-row">
+                    <div className="page-label">
+                      ▸ Who's Serving Today — separate 8.5″ × 11″ page (not printed with the bulletin)
                     </div>
-                  ));
-                })()}
+                    <div className="preview-scaled">
+                      <div dangerouslySetInnerHTML={{ __html: buildServingPageHTML() }} />
+                    </div>
+                  </div>
+                )}
               </>
             )}
           </div>
