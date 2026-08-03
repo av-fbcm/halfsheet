@@ -8,8 +8,19 @@ const DARK = "#1a1a2e";
 const CLIENT_ID = "700317661922-usjieegsea5jdo3bi0g6qatekvp4j37d.apps.googleusercontent.com";
 const FOLDER_ID = "1e791rdoNoUsqu6faUW-zidBb5TAchBLK";
 const SCOPES = "https://www.googleapis.com/auth/drive.file";
-const FRONT_MAX = 9;
-const TOTAL_MAX = 9;
+// Appended to the front page only on communion Sundays. These two facts used to sit
+// inside the Lord's Supper block on the back, where they were logistics wearing
+// theological clothing — and where they cost space the order of worship needed.
+const KIDS_COMMUNION_ANNOUNCEMENT = {
+  title: "Children on Communion Sunday",
+  date: null,
+  description: "No children's church on the first Sunday — we worship intergenerationally. Children's bulletins are at each entrance.",
+  location: null,
+  registration: null,
+};
+
+const FRONT_MAX = 8;
+const TOTAL_MAX = 8;
 
 // ─── Auto-shrink hook ─────────────────────────────────────────────────────────
 function useAutoShrink(outerRef, innerRef) {
@@ -82,8 +93,6 @@ function getDefaultResponseInstructions(sundayDateStr) {
   if (isFirstSundayOfMonth(sundayDateStr)) {
     return `The Lord's Supper
 ⛪ First Baptist celebrates the Lord's Supper on the First Sunday of the month, after the sermon and a Communion song.
-🔔 There is no children's church on the first Sunday of the month, instead we celebrate intergenerationally.
-✏️ Children's bulletins are available at each entrance.
 🫓 If you are a Baptized believer, you are welcome to partake! This is the Lord's Table, not our own.
 ✝️ But if this does not describe you, or your home church or Christian tradition asks you not to partake at other churches, you may cross your arms over yourself and instead receive a blessing.
 ❤️‍🩹 On your way out, our Deacons will collect a mercy offering to benefit the needy in our community.`;
@@ -389,12 +398,13 @@ function ConnectFooter() {
 }
 
 // ─── Front half-sheet ─────────────────────────────────────────────────────────
-function HalfSheetFront({ data, onCutoffChange }) {
+function HalfSheetFront({ data, onCutoffChange, communion }) {
   const outerRef = useRef(null);
   const annRefs = useRef([]);
   const [cutoffIdx, setCutoffIdx] = useState(null);
 
-  const announcements = data?.announcements || [];
+  const base = data?.announcements || [];
+  const announcements = communion ? [...base, KIDS_COMMUNION_ANNOUNCEMENT] : base;
   annRefs.current = new Array(announcements.length);
 
   useLayoutEffect(() => {
@@ -436,6 +446,34 @@ function HalfSheetFront({ data, onCutoffChange }) {
           <span style={{ fontWeight: "bold", color: DARK }}>bit.ly/churchtracFBCM</span>
         </div>
         <div style={{ borderTop: `1.5px solid ${GOLD}`, marginBottom: "10px" }} />
+
+        {/* Moved from the back page: the Wednesday news now points forward to Sunday. */}
+        {data?.sermon && (data.sermon.title || data.sermon.scripture) && (
+          <div style={{
+            background: "#fdf8f0", border: `1px solid ${GOLD}`,
+            borderLeft: `3.5px solid ${GOLD}`, borderRadius: "3px",
+            padding: "7px 9px", marginBottom: "10px",
+          }}>
+            <div style={{ fontSize: "8px", letterSpacing: "0.14em", textTransform: "uppercase", color: GOLD, fontFamily: "Arial, sans-serif", fontWeight: "bold", marginBottom: "3px" }}>
+              This Sunday's Message
+            </div>
+            {data.sermon.series && (
+              <div style={{ fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#777", fontFamily: "Arial, sans-serif", fontWeight: "bold", marginBottom: "2px" }}>
+                {data.sermon.series}
+              </div>
+            )}
+            {data.sermon.title && (
+              <div style={{ fontSize: "13px", fontWeight: "bold", color: DARK, lineHeight: 1.25, marginBottom: "2px" }}>
+                {"“"}{data.sermon.title}{"”"}
+              </div>
+            )}
+            {data.sermon.scripture && (
+              <div style={{ fontSize: "10.5px", color: "#555", fontStyle: "italic" }}>
+                {data.sermon.scripture}
+              </div>
+            )}
+          </div>
+        )}
 
         <div style={{ fontSize: "8px", letterSpacing: "0.14em", textTransform: "uppercase", color: GOLD, fontFamily: "Arial, sans-serif", fontWeight: "bold", borderBottom: "0.5px solid #ddd", paddingBottom: "3px", marginBottom: "8px" }}>
           Announcements
@@ -498,32 +536,6 @@ function HalfSheetBack({ data, responseInstructions, backDate, backMode, order }
         </div>
         <div style={{ borderTop: `1.5px solid ${GOLD}`, marginBottom: "10px" }} />
 
-        {data?.sermon && (
-          <div style={{
-            background: "#fdf8f0", border: `1px solid ${GOLD}`,
-            borderLeft: `3.5px solid ${GOLD}`, borderRadius: "3px",
-            padding: "7px 9px", marginBottom: "10px",
-          }}>
-            {data.sermon.series && (
-              <div style={{ fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: GOLD, fontFamily: "Arial, sans-serif", fontWeight: "bold", marginBottom: "2px" }}>
-                {data.sermon.series}
-              </div>
-            )}
-            {data.sermon.title && (
-              <div style={{ fontSize: "13px", fontWeight: "bold", color: DARK, lineHeight: 1.25, marginBottom: "2px" }}>
-                {"\u201c"}{data.sermon.title}{"\u201d"}
-              </div>
-            )}
-            {data.sermon.scripture && (
-              <div style={{ fontSize: "10.5px", color: "#555", fontStyle: "italic", marginBottom: data.sermon.teaser ? "3px" : 0 }}>
-                {data.sermon.scripture}
-              </div>
-            )}
-            {data.sermon.teaser && (
-              <div style={{ fontSize: "10.5px", color: "#444", lineHeight: 1.4 }}>{data.sermon.teaser}</div>
-            )}
-          </div>
-        )}
 
         {back.length > 0 && (
           <>
@@ -633,6 +645,7 @@ export default function HalfSheetGenerator() {
   function buildTwoColHTML(d, wordMode, ri, bd) {
     const items = (d.announcements || []);
     const front = items.slice(0, FRONT_MAX);
+    if (responseMode === "lords_supper") front.push(KIDS_COMMUNION_ANNOUNCEMENT);
     const back  = items.slice(FRONT_MAX, TOTAL_MAX);
     const hasBack = back.length > 0;
 
@@ -684,13 +697,13 @@ export default function HalfSheetGenerator() {
     const rule = `<div style="border-top:1.5pt solid #292854;margin-bottom:8pt;"></div>`;
 
     // ── Sermon box: table for reliable border rendering ─────────────────────
-    const sermonBlock = d.sermon ? `
+    const messageBlock = (d.sermon && (d.sermon.title || d.sermon.scripture)) ? `
       <table cellpadding="0" cellspacing="0" border="0" style="width:100%;margin-bottom:7pt;background-color:#fdf8f0;border:1pt solid #292854;border-left:4pt solid #292854;"><tr>
         <td style="padding:6pt 8pt;background-color:#fdf8f0;">
-          ${d.sermon.series ? `<div style="font-size:9pt;letter-spacing:0.12em;text-transform:uppercase;color:#292854;font-family:Arial,sans-serif;font-weight:bold;margin-bottom:2pt;">${d.sermon.series}</div>` : ""}
+          <div style="font-size:8pt;letter-spacing:0.14em;text-transform:uppercase;color:#292854;font-family:Arial,sans-serif;font-weight:bold;margin-bottom:3pt;">This Sunday&rsquo;s Message</div>
+          ${d.sermon.series ? `<div style="font-size:9pt;letter-spacing:0.1em;text-transform:uppercase;color:#777;font-family:Arial,sans-serif;font-weight:bold;margin-bottom:2pt;">${d.sermon.series}</div>` : ""}
           ${d.sermon.title  ? `<div style="font-size:13pt;font-weight:bold;color:#1a1a2e;line-height:1.25;margin-bottom:2pt;">&ldquo;${d.sermon.title}&rdquo;</div>` : ""}
-          ${d.sermon.scripture ? `<div style="font-size:10.5pt;color:#555;font-style:italic;${d.sermon.teaser ? "margin-bottom:3pt;" : ""}">${d.sermon.scripture}</div>` : ""}
-          ${d.sermon.teaser ? `<div style="font-size:10.5pt;color:#444;line-height:1.4;">${d.sermon.teaser}</div>` : ""}
+          ${d.sermon.scripture ? `<div style="font-size:10.5pt;color:#555;font-style:italic;">${d.sermon.scripture}</div>` : ""}
         </td>
       </tr></table>` : "";
 
@@ -773,14 +786,14 @@ export default function HalfSheetGenerator() {
     const divider = `<td style="width:1px;border-left:1pt dashed #bbb;">&nbsp;</td>`;
 
     const frontCell = `<td style="${cell}">
-      ${logoHtml}${frontHeadingHtml}${rule}
+      ${logoHtml}${frontHeadingHtml}${rule}${messageBlock}
       ${sectionHead("Announcements")}
       ${front.map((item,i) => annoItem(item, i===front.length-1)).join("")}
       ${miniFooter}
     </td>`;
 
     const backCell = `<td style="width:5.5in;padding:0.18in 0.42in 0.3in;vertical-align:top;font-family:Georgia,serif;color:#1a1a2e;">
-      ${logoHtml}${backHeadingHtml}${rule}${sermonBlock}
+      ${logoHtml}${backHeadingHtml}${rule}
       ${back.length > 0 ? sectionHead("Announcements (cont.)") + back.map((item,i) => annoItem(item, i===back.length-1)).join("") : ""}
       ${backBody}
       ${connectFooter}
@@ -948,6 +961,7 @@ ${bodyWrap(pageTable(frontCell) + pageTable(backCell))}
 
   function buildPrintHTML(d, ri, bd) {
     const front = (d.announcements || []).slice(0, FRONT_MAX);
+    if (responseMode === "lords_supper") front.push(KIDS_COMMUNION_ANNOUNCEMENT);
     const back = (d.announcements || []).slice(FRONT_MAX, TOTAL_MAX);
     const hasBack = back.length > 0;
 
@@ -983,12 +997,14 @@ ${bodyWrap(pageTable(frontCell) + pageTable(backCell))}
       </div>`;
     const ruleHtml = `<div style="border-top:1.5px solid #292854;margin-bottom:10px;"></div>`;
 
-    const sermonHtml = d.sermon ? `
+    // Moved to the FRONT page as "This Sunday's Message". No teaser — the interpretive
+    // sentence is the one field that can be confidently wrong about scripture.
+    const messageHtml = (d.sermon && (d.sermon.title || d.sermon.scripture)) ? `
       <div style="background:#fdf8f0;border:1px solid #292854;border-left:3.5px solid #292854;border-radius:3px;padding:7px 9px;margin-bottom:10px;">
-        ${d.sermon.series ? `<div style="font-size:9px;letter-spacing:0.14em;text-transform:uppercase;color:#292854;font-family:Arial,sans-serif;font-weight:bold;margin-bottom:2px;">${d.sermon.series}</div>` : ""}
+        <div style="font-size:8px;letter-spacing:0.14em;text-transform:uppercase;color:#292854;font-family:Arial,sans-serif;font-weight:bold;margin-bottom:3px;">This Sunday&rsquo;s Message</div>
+        ${d.sermon.series ? `<div style="font-size:9px;letter-spacing:0.1em;text-transform:uppercase;color:#777;font-family:Arial,sans-serif;font-weight:bold;margin-bottom:2px;">${d.sermon.series}</div>` : ""}
         ${d.sermon.title ? `<div style="font-size:13px;font-weight:bold;color:#1a1a2e;line-height:1.25;margin-bottom:2px;">&ldquo;${d.sermon.title}&rdquo;</div>` : ""}
-        ${d.sermon.scripture ? `<div style="font-size:10.5px;color:#555;font-style:italic;${d.sermon.teaser ? "margin-bottom:3px;" : ""}">${d.sermon.scripture}</div>` : ""}
-        ${d.sermon.teaser ? `<div style="font-size:10.5px;color:#444;line-height:1.4;">${d.sermon.teaser}</div>` : ""}
+        ${d.sermon.scripture ? `<div style="font-size:10.5px;color:#555;font-style:italic;">${d.sermon.scripture}</div>` : ""}
       </div>` : "";
 
     const noteHeading = (label) => `<div style="font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:#292854;font-family:Arial,sans-serif;font-weight:bold;margin-bottom:3px;margin-top:9px;">${label}</div>`;
@@ -1061,7 +1077,7 @@ ${bodyWrap(pageTable(frontCell) + pageTable(backCell))}
     const frontCol = () => `
       <div class="halfpage" style="${hs}">
         <div style="${inner}">
-          ${logoHtml}${frontHeadingHtml}${ruleHtml}
+          ${logoHtml}${frontHeadingHtml}${ruleHtml}${messageHtml}
           <div style="font-size:8px;letter-spacing:0.14em;text-transform:uppercase;color:#292854;font-family:Arial,sans-serif;font-weight:bold;border-bottom:0.5px solid #ddd;padding-bottom:3px;margin-bottom:8px;">Announcements</div>
           <div>${front.map((item, i) => annoItem(item, i === front.length - 1)).join("")}</div>
           <div style="flex:1;"></div>
@@ -1076,7 +1092,7 @@ ${bodyWrap(pageTable(frontCell) + pageTable(backCell))}
     const backCol = () => `
       <div class="halfpage" style="${hs}">
         <div style="${inner}">
-          ${logoHtml}${backHeadingHtml}${ruleHtml}${sermonHtml}
+          ${logoHtml}${backHeadingHtml}${ruleHtml}
           ${back.length > 0 ? `
             <div style="font-size:8px;letter-spacing:0.14em;text-transform:uppercase;color:#292854;font-family:Arial,sans-serif;font-weight:bold;border-bottom:0.5px solid #ddd;padding-bottom:3px;margin-bottom:8px;">Announcements (cont.)</div>
             <div>${back.map((item, i) => annoItem(item, i === back.length - 1)).join("")}</div>
@@ -1661,7 +1677,7 @@ Schema:
     "series": "series name or null",
     "title": "sermon title or null",
     "scripture": "passage or null",
-    "teaser": "one sentence or null"
+    "teaser": "one sentence drawn from the source text, or null"
   },
   "announcements": [
     {
@@ -1674,7 +1690,19 @@ Schema:
   ]
 }
 
-Rules: include up to 9 most important announcements. Sermon block may be null. Keep descriptions under 25 words.`,
+Rules: include up to 9 most important announcements. Sermon block may be null. Keep descriptions under 25 words.
+
+SERMON TEASER — accuracy matters more than having one
+This line is printed in the congregation's hands, so it must not make claims the source
+text does not make.
+- Draw it ONLY from what the source says about the sermon. Condense; do not add.
+- Never characterize, interpret, or summarize the Bible passage yourself. Do not name
+  biblical figures, describe what happens in the passage, or state its theme unless the
+  source text says so explicitly.
+- The service may reference several passages. Never attribute one passage's content,
+  author, or characters to another.
+- If the source does not actually describe the sermon, set teaser to null. A missing
+  teaser is fine; a wrong one is not.`,
       });
       setData(parsed);
       const sundayDate = getNextSunday(parsed.date);
@@ -2169,9 +2197,9 @@ Rules: include up to 9 most important announcements. Sermon block may be null. K
                   <div className="page-label">▸ Page 1 — Front</div>
                   <div className="preview-scaled">
                     <div className="preview-wrap">
-                      <HalfSheetFront data={data} onCutoffChange={setFrontCutoff} />
+                      <HalfSheetFront data={data} onCutoffChange={setFrontCutoff} communion={responseMode === "lords_supper"} />
                       <div className="cut" />
-                      <HalfSheetFront data={data} />
+                      <HalfSheetFront data={data} communion={responseMode === "lords_supper"} />
                     </div>
                   </div>
                 </div>
