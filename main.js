@@ -58,6 +58,31 @@ ipcMain.handle('oauth-start', async (event, { authUrl, redirectPort }) => {
   })
 })
 
+// Render an HTML string to a real PDF using Chromium's own print engine.
+// Offscreen window → same layout as Ctrl+P, no extra dependencies.
+ipcMain.handle('html-to-pdf', async (event, { html, landscape = true }) => {
+  const win = new BrowserWindow({
+    show: false,
+    webPreferences: { nodeIntegration: false, contextIsolation: true },
+  })
+  try {
+    await win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html))
+    // Give webfonts and base64 images a beat to settle before snapshotting.
+    await new Promise(r => setTimeout(r, 600))
+    const pdf = await win.webContents.printToPDF({
+      // pageSize is in INCHES. 11x8.5 is already landscape, so leave `landscape`
+      // false — setting both would rotate it back to portrait.
+      pageSize: landscape ? { width: 11, height: 8.5 } : { width: 8.5, height: 11 },
+      landscape: false,
+      printBackground: true,
+      margins: { top: 0, bottom: 0, left: 0, right: 0 },
+    })
+    return pdf.toString('base64')
+  } finally {
+    win.destroy()
+  }
+})
+
 function createWindow() {
   const win = new BrowserWindow({
     width: 1400,
