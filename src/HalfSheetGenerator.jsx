@@ -311,7 +311,7 @@ function OrderOfWorship({ order, responseInstructions }) {
   const els = (order?.elements || []).filter(e => e && e.name);
   const heading = (label) => (
     <div style={{
-      fontSize: "10px", letterSpacing: "0.14em", textTransform: "uppercase",
+      fontSize: "11.5px", letterSpacing: "0.14em", textTransform: "uppercase",
       color: GOLD, fontFamily: "Arial, sans-serif", fontWeight: "bold",
       marginBottom: "5px", marginTop: "9px",
     }}>{label}</div>
@@ -326,7 +326,7 @@ function OrderOfWorship({ order, responseInstructions }) {
         {heading(headingText)}
         {items.map((line, i) => (
           <div key={i} style={{
-            fontSize: "8.5px", color: "#333", lineHeight: 1.45, marginBottom: "2px",
+            fontSize: "10px", color: "#333", lineHeight: 1.45, marginBottom: "2px",
             ...(/^\s+/.test(line) ? { paddingLeft: "12px" } : {}),
           }}>{line.trim()}</div>
         ))}
@@ -342,7 +342,7 @@ function OrderOfWorship({ order, responseInstructions }) {
           <div key={i}>
             {newSection && (
               <div style={{
-                fontSize: "9px", fontStyle: "italic", color: GOLD,
+                fontSize: "10.5px", fontStyle: "italic", color: GOLD,
                 fontFamily: "Arial, sans-serif", fontWeight: "600",
                 borderBottom: "0.5px solid #e8e0d0", paddingBottom: "1.5px",
                 marginTop: i === 0 ? "2px" : "7px", marginBottom: "4px",
@@ -350,15 +350,15 @@ function OrderOfWorship({ order, responseInstructions }) {
             )}
             <div style={{
               display: "flex", alignItems: "baseline", gap: "5px",
-              marginBottom: "3.5px", fontSize: "10.5px", lineHeight: 1.3,
+              marginBottom: "3.5px", fontSize: "12px", lineHeight: 1.3,
             }}>
               <span style={{ fontWeight: "bold", color: DARK, whiteSpace: "nowrap" }}>{el.name}</span>
               {el.detail && (
-                <span style={{ fontStyle: "italic", color: "#555", fontSize: "9.5px" }}>{el.detail}</span>
+                <span style={{ fontStyle: "italic", color: "#555", fontSize: "11px" }}>{el.detail}</span>
               )}
               <span style={{ flex: 1, borderBottom: "0.5px dotted #bbb", minWidth: "10px" }} />
               {el.leader && (
-                <span style={{ color: GOLD, fontSize: "9.5px", whiteSpace: "nowrap" }}>{el.leader}</span>
+                <span style={{ color: GOLD, fontSize: "11px", whiteSpace: "nowrap" }}>{el.leader}</span>
               )}
             </div>
           </div>
@@ -1007,7 +1007,7 @@ ${bodyWrap(pageTable(frontCell) + pageTable(backCell))}
         ${d.sermon.scripture ? `<div style="font-size:10.5px;color:#555;font-style:italic;">${d.sermon.scripture}</div>` : ""}
       </div>` : "";
 
-    const noteHeading = (label) => `<div style="font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:#292854;font-family:Arial,sans-serif;font-weight:bold;margin-bottom:3px;margin-top:9px;">${label}</div>`;
+    const noteHeading = (label) => `<div style="font-size:11.5px;letter-spacing:0.14em;text-transform:uppercase;color:#292854;font-family:Arial,sans-serif;font-weight:bold;margin-bottom:3px;margin-top:9px;">${label}</div>`;
     const noteLine = () => `<div style="border-bottom:0.5px solid #ccc;height:18px;margin-bottom:2px;"></div>`;
     const noteLines = (n) => Array.from({length: n}).map(() => noteLine()).join("");
     const renderResponseHtmlPrint = (text) => {
@@ -1017,7 +1017,7 @@ ${bodyWrap(pageTable(frontCell) + pageTable(backCell))}
       const items = allLines.slice(1).filter(l => l.trim());
       return noteHeading(h) + items.map(line => {
         const isIndented = /^\s+/.test(line);
-        return `<div style="font-size:9px;line-height:1.5;color:#333;margin-bottom:2.5px;${isIndented ? "padding-left:12px;" : ""}">${line.trim()}</div>`;
+        return `<div style="font-size:10.5px;line-height:1.5;color:#333;margin-bottom:2.5px;${isIndented ? "padding-left:12px;" : ""}">${line.trim()}</div>`;
       }).join("");
     };
 
@@ -1034,12 +1034,12 @@ ${bodyWrap(pageTable(frontCell) + pageTable(backCell))}
     const orderRowsPrint = elsPrint.map((el, i) => {
       const newSection = el.section && el.section !== (elsPrint[i - 1] || {}).section;
       return `
-      ${newSection ? `<div style="font-size:9px;font-style:italic;color:#292854;font-family:Arial,sans-serif;font-weight:600;border-bottom:0.5px solid #e8e0d0;padding-bottom:1.5px;margin-top:${i === 0 ? "2px" : "7px"};margin-bottom:4px;">${el.section}</div>` : ""}
-      <div style="display:flex;align-items:baseline;gap:5px;margin-bottom:3.5px;font-size:10.5px;line-height:1.3;">
+      ${newSection ? `<div style="font-size:10.5px;font-style:italic;color:#292854;font-family:Arial,sans-serif;font-weight:600;border-bottom:0.5px solid #e8e0d0;padding-bottom:1.5px;margin-top:${i === 0 ? "2px" : "7px"};margin-bottom:4px;">${el.section}</div>` : ""}
+      <div style="display:flex;align-items:baseline;gap:5px;margin-bottom:3.5px;font-size:12px;line-height:1.3;">
         <span style="font-weight:bold;color:#1a1a2e;white-space:nowrap;">${el.name}</span>
-        ${el.detail ? `<span style="font-style:italic;color:#555;font-size:9.5px;">${el.detail}</span>` : ""}
+        ${el.detail ? `<span style="font-style:italic;color:#555;font-size:11px;">${el.detail}</span>` : ""}
         <span style="flex:1;border-bottom:0.5px dotted #bbb;min-width:10px;"></span>
-        ${el.leader ? `<span style="color:#292854;font-size:9.5px;white-space:nowrap;">${el.leader}</span>` : ""}
+        ${el.leader ? `<span style="color:#292854;font-size:11px;white-space:nowrap;">${el.leader}</span>` : ""}
       </div>`;
     }).join("");
     const orderHtmlPrint = `
@@ -1138,8 +1138,8 @@ ${bodyWrap(pageTable(frontCell) + pageTable(backCell))}
     const dateStr = backDate || getNextSunday(data?.date) || "";
     const esc = s => String(s == null ? "" : s);
 
-    const h = (label) => `<div style="font-size:10.5px;letter-spacing:0.14em;text-transform:uppercase;color:${GOLD};font-family:Arial,sans-serif;font-weight:bold;margin:11px 0 5px;border-bottom:0.5px solid #e8e0d0;padding-bottom:2px;">${label}</div>`;
-    const li = (t) => `<div style="font-size:11.5px;line-height:1.45;color:#222;margin-bottom:4px;padding-left:11px;text-indent:-11px;">• ${t}</div>`;
+    const h = (label) => `<div style="font-size:13px;letter-spacing:0.14em;text-transform:uppercase;color:${GOLD};font-family:Arial,sans-serif;font-weight:bold;margin:11px 0 5px;border-bottom:0.5px solid #e8e0d0;padding-bottom:2px;">${label}</div>`;
+    const li = (t) => `<div style="font-size:16px;line-height:1.45;color:#222;margin-bottom:4px;padding-left:11px;text-indent:-11px;">• ${t}</div>`;
     const strong = t => `<strong>${t}</strong>`;
 
     const roleLine = [
@@ -1150,10 +1150,9 @@ ${bodyWrap(pageTable(frontCell) + pageTable(backCell))}
     ].filter(Boolean).join(" &nbsp;·&nbsp; ");
 
     const before = [
-      li(`${strong("Floating greeter")} — the deacon of the week greets and floats before and during the gathering.`),
-      isCommunion ? li(`${strong("Set the table.")} Deacons set up; the Deacon Chair prepares the elements. Gloves and a clean cloth.`) : null,
-      isCommunion ? li(`${strong("Confirm your three roles:")} two deacons serve the cup, one deacon carries a tray to those who cannot come forward.`) : null,
-      isCommunion ? li(`${strong("Tray setup —")} two stacks, lid on top. Each stack: Juice, then Bread, then a third tray. One stack's third tray is empty (for symmetry); the other stack's third tray is Bread &amp; Juice combined — that is the one taken to people in their seats. Juice cups around the outside, bread cubes on a napkin in the center.`) : null,
+      li(`${strong("Floating greeter")} — greet and float before and during the gathering.`),
+      isCommunion ? li(`${strong("Set the table.")} Deacon Chair prepares the elements. Gloves, clean cloth.`) : null,
+      isCommunion ? li(`${strong("Tray setup —")} 2 stacks, lid on top. Each: Juice / Bread / 3rd tray. One 3rd tray empty (symmetry), the other Bread &amp; Juice combined — that one goes to seats. Cups outer ring, bread on a napkin in the center.`) : null,
     ].filter(Boolean).join("");
 
     // Two readings, and only one of them is the deacons'. Name the passage and the
@@ -1162,28 +1161,28 @@ ${bodyWrap(pageTable(frontCell) + pageTable(backCell))}
     const or = o.otherReading || {};
     const srWho = sr.leader || o.reader;
     const during = [
-      li(`${strong("Scripture Reading &mdash; yours, immediately before the sermon.")}${sr.reference ? ` ${strong(esc(sr.reference))}.` : ""}${srWho ? ` Read by ${esc(srWho)}.` : ""} Deacons alternate this reading; if it is your week and you cannot, arrange a reader.`),
+      li(`${strong("Scripture Reading &mdash; yours, right before the sermon.")}${sr.reference ? ` ${strong(esc(sr.reference))}.` : ""}${srWho ? ` Read by ${esc(srWho)}.` : ""} Deacons alternate; arrange a sub if you can't.`),
       (or.reference || or.leader)
-        ? li(`${strong("Other Testament Reading")} &mdash; ${or.reference ? esc(or.reference) + ", " : ""}earlier in the service${or.leader ? `, read by ${esc(or.leader)}` : ""}. Usually a staff member. ${strong("Not the deacons' reading.")}`)
+        ? li(`${strong("Other Testament Reading")} &mdash; ${or.reference ? esc(or.reference) + ", " : ""}earlier${or.leader ? `, read by ${esc(or.leader)}` : ""}. Usually staff. ${strong("Not yours.")}`)
         : null,
-      isCommunion ? li(`${strong("Communion")} — the Pastors lead: prayers, words of institution, and serving the bread. Two deacons serve the cup. One deacon takes a tray to those unable to process forward: members with limited mobility, and volunteers who cannot leave their posts (nursery, sound, security).`) : null,
+      isCommunion ? li(`${strong("Communion")} — Pastors lead prayers, words of institution, bread. ${strong("2 deacons serve the cup; 1 takes a tray")} to those who can't come forward — limited mobility, and volunteers at posts (nursery, sound, security).`) : null,
       o.offeringCue
-        ? li(`${strong("Offering")} — collected during ${strong("&ldquo;" + esc(o.offeringCue) + "&rdquo;")}, the first song after ${isCommunion ? "the Lord's Supper" : "the sermon"}. Watch the worship leader, not the clock.`)
+        ? li(`${strong("Offering")} — during ${strong("&ldquo;" + esc(o.offeringCue) + "&rdquo;")}, the first song after ${isCommunion ? "the Lord's Supper" : "the sermon"}. Watch the worship leader, not the clock.`)
         : li(`${strong("Offering")} — the first song after ${isCommunion ? "the Lord's Supper" : "the sermon"}. Confirm the song title with the presiding leader before the service.`),
-      isCommunion ? li(`${strong("Mercy offering")} — collected by the deacons at the exits on the way out.`) : null,
+      isCommunion ? li(`${strong("Mercy offering")} — at the exits on the way out.`) : null,
     ].filter(Boolean).join("");
 
     const after = isCommunion ? [
-      li(`${strong("Package")} enough remaining elements for the homebound members in your circle.`),
-      li(`${strong("Dispose")} respectfully of what remains, and clean all supplies.`),
-      li(`${strong("Visit within one week.")} If you cannot, trade with another deacon or schedule another time this month — the elements are perishable and you may have to supply your own.`),
+      li(`${strong("Package")} elements for the homebound in your circle.`),
+      li(`${strong("Dispose")} of the rest respectfully; clean all supplies.`),
+      li(`${strong("Visit within one week.")} If you can't, trade with a deacon or reschedule this month — elements are perishable.`),
     ].join("") : li(`Reset anything you moved; check with the presiding leader before you leave.`);
 
     const deaconColumn = `
       ${deacons.length ? `
         <div style="background:#fdf8f0;border:1px solid ${GOLD};border-left:4px solid ${GOLD};padding:7px 10px;margin-bottom:6px;">
-          <div style="font-size:9.5px;letter-spacing:0.14em;text-transform:uppercase;color:${GOLD};font-family:Arial,sans-serif;font-weight:bold;margin-bottom:3px;">Deacons Serving</div>
-          <div style="font-size:14px;font-weight:bold;line-height:1.4;">${deacons.map(esc).join(" &nbsp;·&nbsp; ")}</div>
+          <div style="font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:${GOLD};font-family:Arial,sans-serif;font-weight:bold;margin-bottom:3px;">Deacons Serving</div>
+          <div style="font-size:18px;font-weight:bold;line-height:1.4;">${deacons.map(esc).join(" &nbsp;·&nbsp; ")}</div>
         </div>` : ""}
       ${h("Before Worship")}${before}
       ${h("During Worship")}${during}
@@ -1191,8 +1190,8 @@ ${bodyWrap(pageTable(frontCell) + pageTable(backCell))}
 
     // ── The rest of the teams serving ────────────────────────────────────────
     const roleBlock = (rows) => rows.filter(r => r && (r.names || []).length).map(r => `
-      <div style="display:flex;align-items:baseline;gap:5px;margin-bottom:3px;font-size:11.5px;line-height:1.35;">
-        <span style="color:#555;font-family:Arial,sans-serif;font-size:10px;white-space:nowrap;">${esc(r.role)}</span>
+      <div style="display:flex;align-items:baseline;gap:5px;margin-bottom:3px;font-size:16px;line-height:1.35;">
+        <span style="color:#555;font-family:Arial,sans-serif;font-size:13px;white-space:nowrap;">${esc(r.role)}</span>
         <span style="flex:1;border-bottom:0.5px dotted #ddd;min-width:8px;"></span>
         <span style="font-weight:bold;color:#1a1a2e;text-align:right;">${(r.names || []).map(esc).join(" &nbsp;·&nbsp; ")}</span>
       </div>`).join("");
@@ -1205,7 +1204,7 @@ ${bodyWrap(pageTable(frontCell) + pageTable(backCell))}
 
     const teamsColumn = `
       ${pt.length ? h("Praise Team") + roleBlock(pt) + `
-        <div style="margin-top:5px;background:#fdf8f0;border-left:3px solid ${GOLD};padding:5px 8px;font-size:10px;color:#444;font-family:Arial,sans-serif;line-height:1.4;">
+        <div style="margin-top:5px;background:#fdf8f0;border-left:3px solid ${GOLD};padding:5px 8px;font-size:13px;color:#444;font-family:Arial,sans-serif;line-height:1.4;">
           <strong>Praise Team Practice &mdash; Thursday, 6:30 PM.</strong> Choir and other specials rehearse separately.
         </div>` : ""}
       ${av.length ? h("Audio / Visual Team") + roleBlock(av) : ""}
@@ -1219,12 +1218,12 @@ ${bodyWrap(pageTable(frontCell) + pageTable(backCell))}
 
     const offeringBlock = `
       <div style="background:#fdf8f0;border:1px solid ${GOLD};border-left:4px solid ${GOLD};padding:8px 11px;margin-top:10px;">
-        <div style="font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:${GOLD};font-family:Arial,sans-serif;font-weight:bold;margin-bottom:4px;">Offering</div>
-        <div style="font-size:12px;color:#222;line-height:1.5;margin-bottom:3px;">${offeringWhen}</div>
-        <div style="font-size:11.5px;color:#333;font-family:Arial,sans-serif;line-height:1.5;">
+        <div style="font-size:13px;letter-spacing:0.14em;text-transform:uppercase;color:${GOLD};font-family:Arial,sans-serif;font-weight:bold;margin-bottom:4px;">Offering</div>
+        <div style="font-size:16px;color:#222;line-height:1.5;margin-bottom:3px;">${offeringWhen}</div>
+        <div style="font-size:16px;color:#333;font-family:Arial,sans-serif;line-height:1.5;">
           Generally led by <strong>${esc(OFFERING_LEAD)}</strong>; those collecting vary week to week.
         </div>
-        <div style="font-size:10.5px;color:#555;font-family:Arial,sans-serif;line-height:1.5;margin-top:3px;">
+        <div style="font-size:13px;color:#555;font-family:Arial,sans-serif;line-height:1.5;margin-top:3px;">
           Questions about helping collect the offering? Contact ${OFFERING_CONTACTS.map(esc).join(" or ")}.
         </div>
       </div>`;
@@ -1235,15 +1234,15 @@ ${bodyWrap(pageTable(frontCell) + pageTable(backCell))}
       <div class="fullpage" style="width:8.5in;height:11in;background:white;box-sizing:border-box;font-family:Georgia,serif;color:#1a1a2e;overflow:hidden;">
         <div style="padding:0.5in 0.55in 0.4in;box-sizing:border-box;display:flex;flex-direction:column;height:100%;">
           <div style="text-align:center;margin-bottom:8px;">
-            <div style="font-size:23px;font-weight:bold;font-family:Arial,sans-serif;letter-spacing:0.05em;">WHO'S SERVING SUNDAY</div>
-            <div style="font-size:12.5px;color:${GOLD};font-family:Arial,sans-serif;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;margin-top:2px;">
+            <div style="font-size:26px;font-weight:bold;font-family:Arial,sans-serif;letter-spacing:0.05em;">WHO'S SERVING SUNDAY</div>
+            <div style="font-size:14px;color:${GOLD};font-family:Arial,sans-serif;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;margin-top:2px;">
               First Baptist Muncie${isCommunion ? " &mdash; Communion Sunday" : ""}
             </div>
-            <div style="font-size:11.5px;color:#666;font-family:Arial,sans-serif;font-style:italic;margin-top:4px;">${esc(dateStr)}${o.serviceTitle ? " &nbsp;·&nbsp; " + esc(o.serviceTitle) : ""}</div>
+            <div style="font-size:16px;color:#666;font-family:Arial,sans-serif;font-style:italic;margin-top:4px;">${esc(dateStr)}${o.serviceTitle ? " &nbsp;·&nbsp; " + esc(o.serviceTitle) : ""}</div>
           </div>
           <div style="border-top:1.5px solid ${GOLD};margin-bottom:9px;"></div>
 
-          ${roleLine ? `<div style="font-size:12.5px;color:#333;font-family:Arial,sans-serif;line-height:1.7;margin-bottom:8px;text-align:center;">${roleLine}</div>` : ""}
+          ${roleLine ? `<div style="font-size:14px;color:#333;font-family:Arial,sans-serif;line-height:1.7;margin-bottom:8px;text-align:center;">${roleLine}</div>` : ""}
 
           <div style="display:flex;gap:26px;align-items:flex-start;">
             <div style="flex:1;min-width:0;">${deaconColumn}</div>
@@ -1254,7 +1253,7 @@ ${bodyWrap(pageTable(frontCell) + pageTable(backCell))}
           ${offeringBlock}
 
           <div style="flex:1;"></div>
-          <div style="border-top:0.5px solid #ddd;padding-top:6px;font-size:9.5px;color:#999;font-family:Arial,sans-serif;display:flex;justify-content:space-between;">
+          <div style="border-top:0.5px solid #ddd;padding-top:6px;font-size:11px;color:#999;font-family:Arial,sans-serif;display:flex;justify-content:space-between;">
             <span>First Baptist Church Muncie</span>
             <span>Thank you for serving.</span>
           </div>
