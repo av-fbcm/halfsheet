@@ -43,8 +43,8 @@ function useAutoShrink(outerRef, innerRef) {
       inner.style.height = "auto";
       const nat = inner.scrollHeight;
       inner.style.height = prevH;
-      const next = Math.min(1, avail / nat);
-      if (Math.abs(next - s) < 0.004) { s = next; break; }
+      const next = Math.min(1, (avail * 0.995) / nat);
+      if (Math.abs(next - s) < 0.002) { s = next; break; }
       s = next;
     }
     if (s < 0.999) {
@@ -232,10 +232,15 @@ const OTHER_READING_RE = /^(other testament|secondary|second|additional|first)\s
 // ─── Staff titles ─────────────────────────────────────────────────────────────
 // Applied after extraction rather than in the prompt, so it is deterministic and
 // easy to maintain. To add or change staff, edit this map only.
+// prefix — shown on the congregational order of worship only (guests may not know
+//          who is on staff; the people on the Who's Serving sheet already do).
+// short  — role credit shown once, inline, on the FIRST "Praise Team" line of the
+//          order of worship, and only if that person is actually on the team that week.
+// suffix — long form. Currently unused; kept for SUFFIX_ON_HALFSHEET.
 const STAFF_TITLES = {
   "Kendall Ellis":   { prefix: "Rev." },
   "Jonathan Balmer": { prefix: "Rev." },
-  "Cynthia Smith":   { suffix: "Worship Director" },
+  "Cynthia Smith":   { suffix: "Worship Director", short: "Worship Dir." },
 };
 
 // Prefixes ("Rev.") appear everywhere. Suffix titles ("Worship Director") are long,
@@ -287,14 +292,14 @@ const OFFERING_LEAD = "Terry Harke";
 const OFFERING_CONTACTS = ["Terry Harke", "Dick Flaherty"];
 
 // Add a title to a single bare name. Idempotent — never double-prefixes.
-function titleOne(name, { useSuffix = true } = {}) {
+function titleOne(name, { usePrefix = true, useSuffix = true } = {}) {
   const bare = String(name || "").trim();
   if (!bare) return bare;
   const stripped = bare.replace(/^(Rev\.|Pastor|Dr\.)\s+/i, "").replace(/,\s*(Worship Director)$/i, "").trim();
   const t = STAFF_TITLES[stripped];
   if (!t) return bare;
   let out = stripped;
-  if (t.prefix) out = `${t.prefix} ${out}`;
+  if (t.prefix && usePrefix) out = `${t.prefix} ${out}`;
   if (t.suffix && useSuffix) out = `${out}, ${t.suffix}`;
   return out;
 }
@@ -362,23 +367,57 @@ function labelDeaconReader(o) {
   return o;
 }
 
+// Credit the worship director once, inline on the first "Praise Team" line, instead of
+// repeating a long title beside every song. Only fires if she's actually on the roster
+// that week — she's normally listed under vocals or autoharp in the plan.
+// Skips Prelude and Postlude: those are often solo organ, not the team.
+function creditWorshipDirector(o) {
+  if (!o) return o;
+  const withShort = Object.entries(STAFF_TITLES).filter(([, t]) => t.short);
+  if (!withShort.length) return o;
+
+  const roster = (o.praiseTeam || []).flatMap(r => (r.names || []).map(normName));
+  const hit = withShort.find(([name]) => roster.includes(normName(name)));
+  if (!hit) return o;
+
+  const [name, t] = hit;
+  const label = `Praise Team (${t.short} ${name})`;
+  const els = o.elements || [];
+  if (els.some(e => e && String(e.leader || "").includes(t.short))) return o; // already credited
+
+  let done = false;
+  const elements = els.map(el => {
+    if (done || !el) return el;
+    if (String(el.leader || "").trim() !== "Praise Team") return el;
+    if (/^(prelude|postlude)\b/i.test(String(el.name || "").trim())) return el;
+    done = true;
+    return { ...el, leader: label };
+  });
+  return { ...o, elements };
+}
+
 // Walk an extracted order object and apply titles everywhere a person appears.
 // Suffix titles are omitted in the narrow congregational leader column.
 function applyStaffTitles(o) {
   if (!o) return o;
-  const narrow = { useSuffix: SUFFIX_ON_HALFSHEET };
+  // The congregational order of worship carries "Rev." — a guest may not know who's on
+  // staff. The Who's Serving sheet drops it: everyone named there already knows, and it
+  // was wrapping the header line. Same reasoning as not printing "Deacon" on the deacon
+  // sheet. Suffix titles are the reverse — too long for the narrow half-sheet column.
+  const congregational = { usePrefix: true,  useSuffix: SUFFIX_ON_HALFSHEET };
+  const serving       = { usePrefix: false, useSuffix: false };
   return {
     ...o,
-    elements: (o.elements || []).map(el => ({ ...el, leader: titleNames(el.leader, narrow) })),
-    presiding: titleNames(o.presiding),
-    reader: titleNames(o.reader),
-    preacher: titleNames(o.preacher),
-    sermonReading: o.sermonReading ? { ...o.sermonReading, leader: titleNames(o.sermonReading.leader) } : null,
-    otherReading: o.otherReading ? { ...o.otherReading, leader: titleNames(o.otherReading.leader) } : null,
-    deacons: (o.deacons || []).map(n => titleOne(n)),
-    praiseTeam: (o.praiseTeam || []).map(r => ({ ...r, names: (r.names || []).map(n => titleOne(n)) })),
-    avTeam: (o.avTeam || []).map(r => ({ ...r, names: (r.names || []).map(n => titleOne(n)) })),
-    otherTeams: (o.otherTeams || []).map(r => ({ ...r, names: (r.names || []).map(n => titleOne(n)) })),
+    elements: (o.elements || []).map(el => ({ ...el, leader: titleNames(el.leader, congregational) })),
+    presiding: titleNames(o.presiding, serving),
+    reader: titleNames(o.reader, serving),
+    preacher: titleNames(o.preacher, serving),
+    sermonReading: o.sermonReading ? { ...o.sermonReading, leader: titleNames(o.sermonReading.leader, serving) } : null,
+    otherReading: o.otherReading ? { ...o.otherReading, leader: titleNames(o.otherReading.leader, serving) } : null,
+    deacons: (o.deacons || []).map(n => titleOne(n, serving)),
+    praiseTeam: (o.praiseTeam || []).map(r => ({ ...r, names: (r.names || []).map(n => titleOne(n, serving)) })),
+    avTeam: (o.avTeam || []).map(r => ({ ...r, names: (r.names || []).map(n => titleOne(n, serving)) })),
+    otherTeams: (o.otherTeams || []).map(r => ({ ...r, names: (r.names || []).map(n => titleOne(n, serving)) })),
   };
 }
 
@@ -1484,8 +1523,10 @@ ${FIT_SCRIPT}
         inner.style.height = 'auto';
         var nat = inner.scrollHeight;
         inner.style.height = prevH;
-        var next = Math.min(1, avail/nat);
-        if (Math.abs(next-s) < 0.004) { s = next; break; }
+        // 0.5% safety margin: the loop converges to within ~0.4%, which on a letter
+        // page is ~3pt — enough to clip the last block. Half a percent is invisible.
+        var next = Math.min(1, (avail*0.995)/nat);
+        if (Math.abs(next-s) < 0.002) { s = next; break; }
         s = next;
       }
       if (s < 0.999){
@@ -1791,6 +1832,9 @@ MUSIC — collapse hard (this rule is for the ELEMENTS list only)
   rather than a list of instruments, name the performer(s) instead, expanded from the
   roster. "How Beautiful Are the Feet of Them / Soprano solo with piano / Caroline & Molly
   (piano)" gets leader "Caroline Koby & Molly Flodder", not "Praise Team".
+- If a special names an ENSEMBLE, the ensemble is the performer — do not replace it with
+  its accompanist. "Summer Choir w/ Molly (piano)" gets leader "Summer Choir", not
+  "Molly Flodder". The congregation is watching the choir, not the piano bench.
 
 STRIP
 - Durations and running times ("2:00", "30:00", "64:00", "Length in mins").
@@ -1806,6 +1850,11 @@ KEEP
 - Prelude/postlude, welcome, responsive reading, songs and hymns (with title and hymn
   number), scripture readings (with reference), special presentations, sermon, silent
   prayer, passing of the peace, communion, offering, announcements, benediction.
+- ALWAYS keep the PRELUDE and the POSTLUDE. They are usually the first and last rows of
+  the plan, often show a duration of 0:00, and the prelude commonly sits ABOVE the first
+  section heading. A 0:00 duration does NOT make something a production cue. If the row
+  is a piece of music the congregation hears, keep it — name it "Prelude" or "Postlude"
+  and put the piece title in "detail". The congregation is told to look for these.
 - Aim for 10-16 elements after stripping. This is a congregational summary.
 - Preserve the order of the service exactly.
 
@@ -1816,7 +1865,7 @@ order. A responsive reading that merely mentions a communion table is not enough
 Do not invent elements, names, or sections that are not in the source text. Use null when
 something is genuinely absent rather than guessing.`,
       });
-      setOrder(applyStaffTitles(labelDeaconReader(normalizeReadings(parsed))));
+      setOrder(applyStaffTitles(creditWorshipDirector(labelDeaconReader(normalizeReadings(parsed)))));
       setBackMode("order");
 
       // The worship plan is authoritative for the service date. Deriving it from the
@@ -2314,30 +2363,24 @@ text does not make.
                     </div>
                   </div>
                 )}
-                <button className="print-btn" onClick={printSheet} disabled={!data}>
-                  ⬇ Download Print File (.html)
-                </button>
-                <button className="print-btn" onClick={printDeaconCard} disabled={!order}>
-                  🤝 Who's Serving (.html)
-                </button>
-                <button className="drive-btn" onClick={saveToDrive} disabled={!data || driveStatus === "saving"}>
-                  {driveStatus === "saving" && <span className="btn-spin" />}
-                  {driveStatus === "idle" && "☁ Save to Google Drive"}
-                  {driveStatus === "saving" && "Saving…"}
-                  {driveStatus === "done" && "✓ Saved to Drive!"}
-                  {driveStatus === "error" && "✗ Save Failed — Retry"}
-                </button>
-                <button className="word-btn" onClick={downloadWord} disabled={!data || wordStatus === "saving"}>
-                  {wordStatus === "saving" && <span className="btn-spin" />}
-                  {wordStatus === "idle" && "📄 Download Word Doc"}
-                  {wordStatus === "saving" && "Building…"}
-                  {wordStatus === "done" && "✓ Word Doc Downloaded!"}
-                  {wordStatus === "error" && "✗ Failed — Retry"}
-                </button>
-                <p className="hint">
-                  <strong>Preview</strong> updates live as you type.<br />
-                  <strong>Download:</strong> open .html → Ctrl+P → landscape, no margins.
-                </p>
+                {/* Fallbacks only. The old dated-HTML Drive upload and the Word export
+                    were removed: the first wrote files the Weekly links don't point at,
+                    the second renders ~33% larger than the PDF (pt vs px). */}
+                <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", marginTop: "4px", paddingTop: "10px" }}>
+                  <div style={{ fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: "rgba(240,236,226,0.55)", fontWeight: 600, marginBottom: "6px" }}>
+                    If PDF export fails
+                  </div>
+                  <button className="print-btn" style={{ fontSize: "10px", padding: "7px", width: "100%", marginBottom: "6px" }} onClick={printSheet} disabled={!data}>
+                    ⬇ Half-Sheet (.html)
+                  </button>
+                  <button className="print-btn" style={{ fontSize: "10px", padding: "7px", width: "100%" }} onClick={printDeaconCard} disabled={!order}>
+                    🤝 Who's Serving (.html)
+                  </button>
+                  <p className="hint" style={{ marginTop: "6px" }}>
+                    Open the .html → Ctrl+P → landscape, no margins.
+                  </p>
+                </div>
+                <p className="hint"><strong>Preview</strong> updates live as you type.</p>
               </>
             ) : (
               <>
