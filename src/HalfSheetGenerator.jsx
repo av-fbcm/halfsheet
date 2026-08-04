@@ -2057,6 +2057,14 @@ text does not make.
           <div className="topbar-text">
             <span className="badge">FBC Muncie</span>
             <span className="title">Weekly Half-Sheet Generator</span>
+            {/* Which build am I running? Answers it without generating a PDF. */}
+            <span style={{
+              fontSize: "10px", color: "rgba(240,236,226,0.55)", fontFamily: "monospace",
+              border: "1px solid rgba(255,255,255,0.14)", borderRadius: "3px",
+              padding: "2px 7px", marginLeft: "10px", whiteSpace: "nowrap",
+            }} title="Build date — check this after installing a new version">
+              build {typeof __BUILD_STAMP__ !== "undefined" ? __BUILD_STAMP__ : "dev"}
+            </span>
           </div>
         </div>
         <div className="body">
