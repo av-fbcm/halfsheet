@@ -47,13 +47,18 @@ function useAutoShrink(outerRef, innerRef) {
       if (Math.abs(next - s) < 0.002) { s = next; break; }
       s = next;
     }
-    if (s < 0.999) {
+    // Verify empirically — see the note in FIT_SCRIPT. The estimate can miss overflow
+    // because `inner` is height:100% and the overrun lives outside its box.
+    for (let v = 0; v < 25 && s > 0.45; v++) {
       inner.style.width = `${(100 / s).toFixed(3)}%`;
       inner.style.transform = `scale(${s.toFixed(4)})`;
-    } else {
-      inner.style.width = "";
-      inner.style.transform = "";
+      const lastEl = inner.lastElementChild;
+      if (!lastEl) break;
+      const over = lastEl.getBoundingClientRect().bottom - outer.getBoundingClientRect().bottom;
+      if (over <= -1) break;
+      s *= 0.98;
     }
+    if (s >= 0.999) { inner.style.width = ""; inner.style.transform = ""; }
   });
 }
 
@@ -1529,12 +1534,20 @@ ${FIT_SCRIPT}
         if (Math.abs(next-s) < 0.002) { s = next; break; }
         s = next;
       }
-      if (s < 0.999){
+      // The estimate above can be wrong — inner is height:100%, so its box is always
+      // exactly one page tall and overflowing content lives outside it where neither
+      // scrollHeight nor getBoundingClientRect reliably sees it. So verify empirically:
+      // shrink until the LAST child actually sits above the page edge.
+      for (var v=0; v<25 && s>0.45; v++){
         inner.style.width = (100/s).toFixed(3)+'%';
         inner.style.transform = 'scale('+s.toFixed(4)+')';
-      } else {
-        inner.style.width=''; inner.style.transform='';
+        var lastEl = inner.lastElementChild;
+        if (!lastEl) break;
+        var over = lastEl.getBoundingClientRect().bottom - outer.getBoundingClientRect().bottom;
+        if (over <= -1) break;      // fits, with a hair to spare
+        s *= 0.98;
       }
+      if (s >= 0.999){ inner.style.width=''; inner.style.transform=''; }
     }
   }
   if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',fit);}else{fit();}
