@@ -291,6 +291,32 @@ const isDeaconName = (name, planDeacons) => {
       || (planDeacons || []).some(d => normName(d) === n);
 };
 
+// ─── Standing Sunday-morning ministries ───────────────────────────────────────
+// These rarely reach Planning Center, so they're kept here. They print on the
+// Who's Serving sheet only IF THERE IS ROOM — see data-optional in FIT_SCRIPT.
+// Lower "drop" number = dropped first when the page runs short.
+
+// Bible Study rotates on a three-month cycle starting in August.
+const BIBLE_STUDY_ROTATION = [
+  ["Ella Mae Lemen", "Sandi Brzak"],   // Aug, Nov, Feb, May
+  ["Loraine Garrett"],                 // Sep, Dec, Mar, Jun
+  ["William (Bill) Eidson"],           // Oct, Jan, Apr, Jul
+];
+function bibleStudyFor(dateStr) {
+  const d = new Date(cleanDateStr(dateStr || ""));
+  if (isNaN(d.getTime())) return null;
+  const m = d.getMonth() + 1;                       // 1-12
+  const idx = (((m - 8) % 3) + 3) % 3;              // Aug -> 0, Sep -> 1, Oct -> 2
+  return BIBLE_STUDY_ROTATION[idx];
+}
+
+// Same people most weeks. Edit here when a class changes hands.
+const ADULT_CLASSES = [
+  { role: "Intergenerational Sunday School (9:30am)", names: ["Jim Butler", "Andy Heimlich"] },
+  { role: "New Friendship Class (9:30am)",            names: ["Jonathan Balmer"] },
+];
+const DONUT_FELLOWSHIP = { role: "Donut Fellowship (10:15am)", names: ["Larry Fouch", "Donna Fouch"] };
+
 // Offering collection isn't in the worship plan's roster, so it lives here.
 // Edit these two lines if the lead or the contacts change.
 const OFFERING_LEAD = "Terry Harke";
@@ -328,6 +354,20 @@ function titleNames(value, opts) {
     .replace(/&/g, " & ")
     .replace(/\s{2,}/g, " ")
     .trim();
+}
+
+// Don't print the same leader twice running. A name reappears only after someone else
+// has led. Elements with no leader (Silent Prayer, Blessing of the Offering) and section
+// headings do not break the run — a blank isn't a different person.
+function withDisplayLeaders(els) {
+  let lastShown = null;
+  return (els || []).map(el => {
+    const L = String((el && el.leader) || "").trim();
+    if (!L) return { ...el, displayLeader: "" };
+    const show = L !== lastShown;
+    lastShown = L;
+    return { ...el, displayLeader: show ? L : "" };
+  });
 }
 
 // Rename the non-sermon reading to its actual testament, in the order of worship and
@@ -509,7 +549,7 @@ function SermonNotes({ responseInstructions }) {
 // Congregational view: element + leader. Praise team is collapsed to a single
 // line on purpose — the full team already receives the complete order of worship.
 function OrderOfWorship({ order, responseInstructions }) {
-  const els = (order?.elements || []).filter(e => e && e.name);
+  const els = withDisplayLeaders((order?.elements || []).filter(e => e && e.name));
   const heading = (label) => (
     <div style={{
       fontSize: "11.5px", letterSpacing: "0.14em", textTransform: "uppercase",
@@ -558,8 +598,8 @@ function OrderOfWorship({ order, responseInstructions }) {
                 <span style={{ fontStyle: "italic", color: "#555", fontSize: "11px" }}>{el.detail}</span>
               )}
               <span style={{ flex: 1, borderBottom: "0.5px dotted #bbb", minWidth: "10px" }} />
-              {el.leader && (
-                <span style={{ color: GOLD, fontSize: "11px", whiteSpace: "nowrap" }}>{el.leader}</span>
+              {el.displayLeader && (
+                <span style={{ color: GOLD, fontSize: "11px", whiteSpace: "nowrap" }}>{el.displayLeader}</span>
               )}
             </div>
           </div>
@@ -588,10 +628,12 @@ function ConnectFooter() {
             <div>{bold("Socials:")} linktr.ee/fbcmuncie</div>
           </div>
         </div>
-        <img src={QR_CODE} alt="QR Code" style={{ height: "54px", width: "54px", objectFit: "contain", flexShrink: 0 }} />
-      </div>
-      <div style={{ textAlign: "center", fontSize: "9px", fontStyle: "italic", color: GOLD, fontFamily: "Arial, sans-serif", fontWeight: "600", letterSpacing: "0.02em", marginTop: "6px" }}>
-        &ldquo;Praise &amp; Proclaim&rdquo; — Isaiah 12:4
+        <div style={{ flexShrink: 0, textAlign: "right" }}>
+          <img src={QR_CODE} alt="QR Code" style={{ height: "54px", width: "54px", objectFit: "contain", display: "block", marginLeft: "auto" }} />
+          <div style={{ fontSize: "9px", fontStyle: "italic", color: GOLD, fontFamily: "Arial, sans-serif", fontWeight: "600", letterSpacing: "0.02em", marginTop: "3px", whiteSpace: "nowrap" }}>
+            &ldquo;Praise &amp; Proclaim&rdquo; — Isaiah 12:4
+          </div>
+        </div>
       </div>
       <div style={{ borderTop: "0.5px solid #ddd", marginTop: "5px", paddingTop: "4px", display: "flex", justifyContent: "space-between" }}>
         <span style={{ fontSize: "7px", color: "#999", fontFamily: "Arial, sans-serif" }}>fbcmuncie.org</span>
@@ -733,7 +775,7 @@ function HalfSheetBack({ data, responseInstructions, backDate, backMode, order }
             Sunday Worship at FBCM
           </div>
           <div style={{ fontSize: "8.5px", color: "#666", fontFamily: "Arial, sans-serif", marginTop: "2px", fontStyle: "italic" }}>
-            {backDate || getNextSunday(data?.date) || ""}
+            {backDate || getNextSunday(data?.date) || ""} &nbsp;&middot;&nbsp; Worship begins at 10:45 AM
           </div>
         </div>
         <div style={{ borderTop: `1.5px solid ${GOLD}`, marginBottom: "10px" }} />
@@ -928,7 +970,7 @@ export default function HalfSheetGenerator() {
       </div>`;
 
     // ── Order of worship (table rows so Word/Docs keep the two columns) ─────
-    const elsTwo = (order?.elements || []).filter(e => e && e.name);
+    const elsTwo = withDisplayLeaders((order?.elements || []).filter(e => e && e.name));
     const orderRows = elsTwo.map((el, i) => {
       const newSection = el.section && el.section !== (elsTwo[i - 1] || {}).section;
       return `
@@ -938,7 +980,7 @@ export default function HalfSheetGenerator() {
           <strong>${el.name}</strong>${el.detail ? ` <span style="font-style:italic;color:#555;font-size:9.5pt;">${el.detail}</span>` : ""}
         </td>
         <td style="padding:1.5pt 0;font-size:9.5pt;color:#292854;text-align:right;white-space:nowrap;vertical-align:bottom;">
-          ${el.leader || ""}
+          ${el.displayLeader || ""}
         </td>
       </tr>`;
     }).join("");
@@ -1194,7 +1236,7 @@ ${bodyWrap(pageTable(frontCell) + pageTable(backCell))}
     const backHeadingHtml = `
       <div style="text-align:center;margin-bottom:8px;">
         <div style="font-size:11px;font-weight:bold;font-family:Arial,sans-serif;color:#1a1a2e;letter-spacing:0.04em;">Sunday Worship at FBCM</div>
-        <div style="font-size:8.5px;color:#666;font-family:Arial,sans-serif;margin-top:2px;font-style:italic;">${resolvedBackDate || ""}</div>
+        <div style="font-size:8.5px;color:#666;font-family:Arial,sans-serif;margin-top:2px;font-style:italic;">${resolvedBackDate || ""} &nbsp;&middot;&nbsp; Worship begins at 10:45 AM</div>
       </div>`;
     const ruleHtml = `<div style="border-top:1.5px solid #292854;margin-bottom:10px;"></div>`;
 
@@ -1231,7 +1273,7 @@ ${bodyWrap(pageTable(frontCell) + pageTable(backCell))}
       </div>`;
 
     // ── Order of worship (print) ────────────────────────────────────────────
-    const elsPrint = (order?.elements || []).filter(e => e && e.name);
+    const elsPrint = withDisplayLeaders((order?.elements || []).filter(e => e && e.name));
     const orderRowsPrint = elsPrint.map((el, i) => {
       const newSection = el.section && el.section !== (elsPrint[i - 1] || {}).section;
       return `
@@ -1240,7 +1282,7 @@ ${bodyWrap(pageTable(frontCell) + pageTable(backCell))}
         <span style="font-weight:bold;color:#1a1a2e;white-space:nowrap;">${el.name}</span>
         ${el.detail ? `<span style="font-style:italic;color:#555;font-size:11px;">${el.detail}</span>` : ""}
         <span style="flex:1;border-bottom:0.5px dotted #bbb;min-width:10px;"></span>
-        ${el.leader ? `<span style="color:#292854;font-size:11px;white-space:nowrap;">${el.leader}</span>` : ""}
+        ${el.displayLeader ? `<span style="color:#292854;font-size:11px;white-space:nowrap;">${el.displayLeader}</span>` : ""}
       </div>`;
     }).join("");
     const orderHtmlPrint = `
@@ -1264,9 +1306,11 @@ ${bodyWrap(pageTable(frontCell) + pageTable(backCell))}
               <div><strong>Socials:</strong> linktr.ee/fbcmuncie</div>
             </div>
           </div>
-          <img src="${QR_CODE}" style="height:54px;width:54px;object-fit:contain;flex-shrink:0;" alt="QR"/>
+          <div style="flex-shrink:0;text-align:right;">
+            <img src="${QR_CODE}" style="height:54px;width:54px;object-fit:contain;display:block;margin-left:auto;" alt="QR"/>
+            <div style="font-size:9px;font-style:italic;color:#292854;font-family:Arial,sans-serif;font-weight:600;letter-spacing:0.02em;margin-top:3px;white-space:nowrap;">&ldquo;Praise &amp; Proclaim&rdquo; &mdash; Isaiah 12:4</div>
+          </div>
         </div>
-        <div style="text-align:center;font-size:9px;font-style:italic;color:#292854;font-family:Arial,sans-serif;font-weight:600;letter-spacing:0.02em;margin-top:6px;">&ldquo;Praise &amp; Proclaim&rdquo; &mdash; Isaiah 12:4</div>
         <div style="border-top:0.5px solid #ddd;margin-top:5px;padding-top:4px;display:flex;justify-content:space-between;">
           <span style="font-size:7px;color:#999;font-family:Arial,sans-serif;">fbcmuncie.org</span>
           <span style="font-size:7px;color:#999;font-family:Arial,sans-serif;">Church Connect App</span>
@@ -1415,13 +1459,32 @@ ${bodyWrap(pageTable(frontCell) + pageTable(backCell))}
     const byTeam = {};
     others.forEach(r => { if (!r) return; (byTeam[r.team || "Also Serving"] ||= []).push(r); });
 
+    // Children's team gets the youth label and this month's Bible Study leaders.
+    const kidsKey = Object.keys(byTeam).find(k => /children/i.test(k));
+    const bible = bibleStudyFor(dateStr);
+    const bibleRow = bible ? [{ role: "Youth Bible Study (9:30am)", names: bible }] : [];
+    if (kidsKey) {
+      const rows = byTeam[kidsKey];
+      delete byTeam[kidsKey];
+      byTeam["Children's / Youth Volunteers"] = [...rows, ...bibleRow];
+    } else if (bibleRow.length) {
+      byTeam["Children's / Youth Volunteers"] = bibleRow;
+    }
+
+    // Standing ministries — printed only if there's room. data-optional is the drop
+    // order (1 goes first); FIT_SCRIPT removes them before it resorts to shrinking.
+    const optional = (dropOrder, label, rows) => rows.length ? `
+      <div data-optional="${dropOrder}">${h(label)}${roleBlock(rows)}</div>` : "";
+
     const teamsColumn = `
       ${pt.length ? h("Praise Team") + roleBlock(pt) + `
         <div style="margin-top:5px;background:#fdf8f0;border-left:3px solid ${GOLD};padding:5px 8px;font-size:13px;color:#444;font-family:Arial,sans-serif;line-height:1.4;">
           <strong>Praise Team Practice &mdash; Thursday, 6:30 PM.</strong> Choir and other specials rehearse separately.
         </div>` : ""}
       ${av.length ? h("Audio / Visual Team") + roleBlock(av) : ""}
-      ${Object.keys(byTeam).map(t => h(t) + roleBlock(byTeam[t])).join("")}`;
+      ${Object.keys(byTeam).map(t => h(t) + roleBlock(byTeam[t])).join("")}
+      ${optional(1, "Adult Sunday School", ADULT_CLASSES)}
+      ${optional(2, "Fellowship", [DONUT_FELLOWSHIP])}`;
 
     // ── Offering: its own highlighted block. The timing is what people get wrong,
     //    so lead with the actual song name for this specific Sunday.
@@ -1458,9 +1521,9 @@ ${bodyWrap(pageTable(frontCell) + pageTable(backCell))}
           ${roleLine ? `<div style="font-size:14px;color:#333;font-family:Arial,sans-serif;line-height:1.7;margin-bottom:8px;text-align:center;">${roleLine}</div>` : ""}
 
           <div style="display:flex;gap:26px;align-items:flex-start;">
-            <div style="flex:1;min-width:0;">${deaconColumn}</div>
+            <div data-col="left" style="flex:1;min-width:0;">${deaconColumn}</div>
             <div style="width:1px;background:#e8e0d0;align-self:stretch;"></div>
-            <div style="flex:1;min-width:0;">${teamsColumn}</div>
+            <div data-col="right" style="flex:1;min-width:0;">${teamsColumn}</div>
           </div>
 
           ${offeringBlock}
@@ -1518,6 +1581,25 @@ ${FIT_SCRIPT}
       if(!inner) continue;
       inner.style.transform=''; inner.style.width='';
       inner.style.transformOrigin='top left';
+
+      // Standing ministries are "print if there's room". Drop them in order BEFORE
+      // shrinking type — but ONLY when they're actually what's costing the space.
+      // They sit in the right-hand column; the page is as tall as the TALLER column,
+      // so while the left (deacon) column is longer, these blocks are free and
+      // removing them buys nothing but a blank gap.
+      for (var d=1; d<=3; d++){
+        var lastNow = inner.lastElementChild;
+        if(!lastNow) break;
+        if(lastNow.getBoundingClientRect().bottom - outer.getBoundingClientRect().bottom <= -1) break;
+        var colL = inner.querySelector('[data-col="left"]');
+        var colR = inner.querySelector('[data-col="right"]');
+        if(colL && colR &&
+           colR.getBoundingClientRect().height <= colL.getBoundingClientRect().height) break;
+        var opt = inner.querySelectorAll('[data-optional="'+d+'"]');
+        if(!opt.length) continue;
+        for (var q=0;q<opt.length;q++) opt[q].parentNode.removeChild(opt[q]);
+      }
+
       var avail = outer.clientHeight, s = 1, prevH = inner.style.height;
       for (var k=0;k<8;k++){
         inner.style.width = (100/s).toFixed(3)+'%';
@@ -1836,10 +1918,13 @@ Use [] for any of these that the plan does not contain.
 
 MUSIC — collapse hard (this rule is for the ELEMENTS list only)
 - Any element led by instrumentalists, band, vocalists, or choir gets leader "Praise Team".
-- Instrument-and-name strings are NOT leader names. "Piano (Julie), Drums, Guitar, Vox,
-  Autoharp", "Organ (Molly)", "Vox only", "Summer Choir w/ Molly (piano)" all become
-  "Praise Team". Never list individual musicians — the full team already receives the
-  complete plan, and names here waste scarce space.
+- A LIST of instruments/parts is the band: "Piano (Julie), Drums, Guitar, Vox, Autoharp"
+  and "Vox only" become "Praise Team". Never list the whole band — they already receive
+  the complete plan, and the names waste scarce space.
+- But a SINGLE instrument with ONE named player is that person playing alone, not the
+  band. "Organ (Molly)" on a prelude becomes "Molly Flodder", expanded from the roster.
+  The test is whether more than one instrument or part is named: one means a person,
+  several mean Praise Team.
 - Exception — SPECIALS. A solo, duet, choir anthem, or other special is not the praise
   team. If the element says "solo", "special", "anthem", "Choir", or credits named people
   rather than a list of instruments, name the performer(s) instead, expanded from the
