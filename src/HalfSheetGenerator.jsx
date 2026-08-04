@@ -360,21 +360,31 @@ function titleNames(value, opts) {
 // has led. Elements with no leader (Silent Prayer, Blessing of the Offering) and section
 // headings do not break the run — a blank isn't a different person.
 const isPraiseTeam = L => /^praise team\b/i.test(String(L || "").trim());
+const isPreludePostlude = n => /^(prelude|postlude)\b/i.test(String(n || "").trim());
+
+// A congregational song is one the praise team leads and the room sings. Solos, the
+// choir, and named players keep their own credit; prelude and postlude are performed
+// TO the congregation, not by it.
+const isCongregationalSong = el =>
+  !!el && isPraiseTeam(el.leader) && !isPreludePostlude(el.name);
 
 function withDisplayLeaders(els) {
   let lastShown = null;
-  let praiseShown = false;
+  let firstSongDone = false;
   return (els || []).map(el => {
     const L = String((el && el.leader) || "").trim();
     if (!L) return { ...el, displayLeader: "" };
-    // The praise team leads several congregational songs across a service. Name them
-    // once — not per song. Solos, the choir, and named players are unaffected.
-    if (isPraiseTeam(L)) {
-      const first = !praiseShown;
-      praiseShown = true;
-      lastShown = "~PRAISE~praise";
-      return { ...el, displayLeader: first ? L : "" };
+
+    if (isCongregationalSong(el)) {
+      // Name the team (and the worship director) once, then just keep inviting the room.
+      const shown = firstSongDone
+        ? "All Gathered"
+        : L.replace(/^praise team/i, "Praise Team Leading") + " & All Gathered";
+      firstSongDone = true;
+      lastShown = "All Gathered";
+      return { ...el, displayLeader: shown };
     }
+
     const show = L !== lastShown;
     lastShown = L;
     return { ...el, displayLeader: show ? L : "" };
@@ -386,7 +396,11 @@ function withDisplayLeaders(els) {
 function withSermonDetail(els, sermon) {
   const title = sermon && sermon.title;
   if (!title) return els;
-  const label = sermon.series ? `${sermon.series}: “${title}”` : `“${title}”`;
+  // Some weeks the extraction returns the same string for both; don't print it twice.
+  const series = String(sermon.series || "").trim();
+  const same = series && series.toLowerCase().replace(/[“”"']/g, "")
+             === String(title).trim().toLowerCase().replace(/[“”"']/g, "");
+  const label = (series && !same) ? `${series}: “${title}”` : `“${title}”`;
   let done = false;
   return (els || []).map(el => {
     if (done || !el) return el;
@@ -451,8 +465,13 @@ function inferBenediction(o) {
   if (!o || !o.preacher) return o;
   let done = false;
   const elements = (o.elements || []).map(el => {
-    if (done || !el || el.leader) return el;
+    if (done || !el) return el;
     if (!/\b(benediction|sending)\b/i.test(String(el.name || ""))) return el;
+    // Blank, or wrongly carried down from Presiding — both get the preacher.
+    // A genuinely different third name (a guest) is left alone.
+    const cur = String(el.leader || "").trim();
+    const pres = String(o.presiding || "").trim();
+    if (cur && !(pres && cur.toLowerCase() === pres.toLowerCase())) return el;
     done = true;
     return { ...el, leader: o.preacher };
   });
@@ -1630,16 +1649,21 @@ ${FIT_SCRIPT}
       inner.style.transform=''; inner.style.width='';
       inner.style.transformOrigin='top left';
 
-      // Standing ministries are "print if there's room". The page is now one balanced
-      // two-column flow, so any block genuinely adds height — drop them in order
-      // before resorting to shrinking the type for everyone.
+      // Standing ministries are "print if there's room". HIDE rather than remove, and
+      // un-hide at the start of every pass: fit() runs more than once, and an early
+      // pass can measure a page whose CSS columns haven't been applied yet — content
+      // still in one tall column looks like a huge overflow. Removing on that pass
+      // was permanent, so blocks vanished from a page that had half a sheet to spare.
+      var allOpt = inner.querySelectorAll('[data-optional]');
+      for (var r=0;r<allOpt.length;r++) allOpt[r].style.display = '';
+
       for (var d=1; d<=3; d++){
         var lastNow = inner.lastElementChild;
         if(!lastNow) break;
         if(lastNow.getBoundingClientRect().bottom - outer.getBoundingClientRect().bottom <= -1) break;
         var opt = inner.querySelectorAll('[data-optional="'+d+'"]');
         if(!opt.length) continue;
-        for (var q=0;q<opt.length;q++) opt[q].parentNode.removeChild(opt[q]);
+        for (var q=0;q<opt.length;q++) opt[q].style.display = 'none';
       }
 
       var avail = outer.clientHeight, s = 1, prevH = inner.style.height;
@@ -1674,8 +1698,10 @@ ${FIT_SCRIPT}
       if (s >= 0.999){ inner.style.width=''; inner.style.transform=''; }
     }
   }
-  if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',fit);}else{fit();}
-  window.addEventListener('load',fit);
+  // Wait for load (images, fonts, and multi-column layout all settled), then one more
+  // frame. Measuring at DOMContentLoaded reads a half-laid-out page.
+  function run(){ requestAnimationFrame(function(){ requestAnimationFrame(fit); }); }
+  if(document.readyState==='complete'){ run(); } else { window.addEventListener('load',run); }
 })();<\/script>`;
 
   // ── PDF export (Chromium print engine via Electron main process) ───────────
@@ -1921,6 +1947,9 @@ Some plans leave the Leader column blank for most rows and put the names only in
 end-of-plan roster. When an element has no inline leader, fill it from the roster by role:
 - Welcome, and any presiding/host element  ->  the "Presiding" person
 - Sermon / Message                          ->  the "Sermon" person
+- Sending / Benediction                     ->  the "Sermon" person, NOT Presiding.
+  Whoever preached gives the benediction. Presiding and preaching are frequently two
+  different pastors, so do not carry the Presiding name down to the benediction.
 - The scripture reading IMMEDIATELY BEFORE the sermon  ->  the "Reading" person
 Any OTHER reading (a secondary/"Other Testament" reading elsewhere in the service) does
 NOT automatically get the roster Reading person — leave it null unless the plan names
