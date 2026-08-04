@@ -359,15 +359,48 @@ function titleNames(value, opts) {
 // Don't print the same leader twice running. A name reappears only after someone else
 // has led. Elements with no leader (Silent Prayer, Blessing of the Offering) and section
 // headings do not break the run — a blank isn't a different person.
+const isPraiseTeam = L => /^praise team\b/i.test(String(L || "").trim());
+
 function withDisplayLeaders(els) {
   let lastShown = null;
+  let praiseShown = false;
   return (els || []).map(el => {
     const L = String((el && el.leader) || "").trim();
     if (!L) return { ...el, displayLeader: "" };
+    // The praise team leads several congregational songs across a service. Name them
+    // once — not per song. Solos, the choir, and named players are unaffected.
+    if (isPraiseTeam(L)) {
+      const first = !praiseShown;
+      praiseShown = true;
+      lastShown = "~PRAISE~praise";
+      return { ...el, displayLeader: first ? L : "" };
+    }
     const show = L !== lastShown;
     lastShown = L;
     return { ...el, displayLeader: show ? L : "" };
   });
+}
+
+// Put the sermon title (and series) beside the Sermon line. Taken from the Wednesday
+// Weekly extraction; the plan itself rarely carries it.
+function withSermonDetail(els, sermon) {
+  const title = sermon && sermon.title;
+  if (!title) return els;
+  const label = sermon.series ? `${sermon.series}: “${title}”` : `“${title}”`;
+  let done = false;
+  return (els || []).map(el => {
+    if (done || !el) return el;
+    const n = String(el.name || "").trim();
+    if (!/^(sermon|message)\b/i.test(n) || /reading/i.test(n)) return el;
+    done = true;
+    return el.detail ? el : { ...el, detail: label };
+  });
+}
+
+// One place so the three render paths can't drift apart.
+function prepareOrderElements(order, sermon) {
+  const els = (order?.elements || []).filter(e => e && e.name);
+  return withDisplayLeaders(withSermonDetail(els, sermon));
 }
 
 // Rename the non-sermon reading to its actual testament, in the order of worship and
@@ -410,6 +443,20 @@ function labelDeaconReader(o) {
     return { ...o, elements: next };
   }
   return o;
+}
+
+// The benediction is given by whoever preached — not the presiding leader, who is often
+// the other pastor. Only fills a blank; a name in the plan always wins.
+function inferBenediction(o) {
+  if (!o || !o.preacher) return o;
+  let done = false;
+  const elements = (o.elements || []).map(el => {
+    if (done || !el || el.leader) return el;
+    if (!/\b(benediction|sending)\b/i.test(String(el.name || ""))) return el;
+    done = true;
+    return { ...el, leader: o.preacher };
+  });
+  return { ...o, elements };
 }
 
 // Credit the worship director once, inline on the first "Praise Team" line, instead of
@@ -548,8 +595,8 @@ function SermonNotes({ responseInstructions }) {
 // ─── Order of worship ─────────────────────────────────────────────────────────
 // Congregational view: element + leader. Praise team is collapsed to a single
 // line on purpose — the full team already receives the complete order of worship.
-function OrderOfWorship({ order, responseInstructions }) {
-  const els = withDisplayLeaders((order?.elements || []).filter(e => e && e.name));
+function OrderOfWorship({ order, responseInstructions, sermon }) {
+  const els = prepareOrderElements(order, sermon);
   const heading = (label) => (
     <div style={{
       fontSize: "11.5px", letterSpacing: "0.14em", textTransform: "uppercase",
@@ -795,7 +842,7 @@ function HalfSheetBack({ data, responseInstructions, backDate, backMode, order }
         )}
 
         {backMode === "order"
-          ? <OrderOfWorship order={order} responseInstructions={responseInstructions} />
+          ? <OrderOfWorship order={order} responseInstructions={responseInstructions} sermon={data?.sermon} />
           : <SermonNotes responseInstructions={responseInstructions} />}
         <div style={{ flex: 1 }} />
         <ConnectFooter />
@@ -970,7 +1017,7 @@ export default function HalfSheetGenerator() {
       </div>`;
 
     // ── Order of worship (table rows so Word/Docs keep the two columns) ─────
-    const elsTwo = withDisplayLeaders((order?.elements || []).filter(e => e && e.name));
+    const elsTwo = prepareOrderElements(order, d.sermon);
     const orderRows = elsTwo.map((el, i) => {
       const newSection = el.section && el.section !== (elsTwo[i - 1] || {}).section;
       return `
@@ -1273,7 +1320,7 @@ ${bodyWrap(pageTable(frontCell) + pageTable(backCell))}
       </div>`;
 
     // ── Order of worship (print) ────────────────────────────────────────────
-    const elsPrint = withDisplayLeaders((order?.elements || []).filter(e => e && e.name));
+    const elsPrint = prepareOrderElements(order, d.sermon);
     const orderRowsPrint = elsPrint.map((el, i) => {
       const newSection = el.section && el.section !== (elsPrint[i - 1] || {}).section;
       return `
@@ -1435,15 +1482,18 @@ ${bodyWrap(pageTable(frontCell) + pageTable(backCell))}
       li(`${strong("Visit within one week.")} If you can't, trade with a deacon or reschedule this month — elements are perishable.`),
     ].join("") : li(`Reset anything you moved; check with the presiding leader before you leave.`);
 
+    // sect() keeps a heading with its rows when the flow breaks across columns.
+    const sect = (inner) => `<div style="break-inside:avoid;-webkit-column-break-inside:avoid;">${inner}</div>`;
+
     const deaconColumn = `
-      ${deacons.length ? `
+      ${deacons.length ? sect(`
         <div style="background:#fdf8f0;border:1px solid ${GOLD};border-left:4px solid ${GOLD};padding:7px 10px;margin-bottom:6px;">
           <div style="font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:${GOLD};font-family:Arial,sans-serif;font-weight:bold;margin-bottom:3px;">Deacons Serving</div>
           <div style="font-size:18px;font-weight:bold;line-height:1.4;">${deacons.map(esc).join(" &nbsp;·&nbsp; ")}</div>
-        </div>` : ""}
-      ${h("Before Worship")}${before}
-      ${h("During Worship")}${during}
-      ${h("After Worship")}${after}`;
+        </div>`) : ""}
+      ${sect(h("Before Worship") + before)}
+      ${sect(h("During Worship") + during)}
+      ${sect(h("After Worship") + after)}`;
 
     // ── The rest of the teams serving ────────────────────────────────────────
     const roleBlock = (rows) => rows.filter(r => r && (r.names || []).length).map(r => `
@@ -1474,15 +1524,15 @@ ${bodyWrap(pageTable(frontCell) + pageTable(backCell))}
     // Standing ministries — printed only if there's room. data-optional is the drop
     // order (1 goes first); FIT_SCRIPT removes them before it resorts to shrinking.
     const optional = (dropOrder, label, rows) => rows.length ? `
-      <div data-optional="${dropOrder}">${h(label)}${roleBlock(rows)}</div>` : "";
+      <div data-optional="${dropOrder}" style="break-inside:avoid;-webkit-column-break-inside:avoid;">${h(label)}${roleBlock(rows)}</div>` : "";
 
     const teamsColumn = `
       ${pt.length ? h("Praise Team") + roleBlock(pt) + `
         <div style="margin-top:5px;background:#fdf8f0;border-left:3px solid ${GOLD};padding:5px 8px;font-size:13px;color:#444;font-family:Arial,sans-serif;line-height:1.4;">
           <strong>Praise Team Practice &mdash; Thursday, 6:30 PM.</strong> Choir and other specials rehearse separately.
         </div>` : ""}
-      ${av.length ? h("Audio / Visual Team") + roleBlock(av) : ""}
-      ${Object.keys(byTeam).map(t => h(t) + roleBlock(byTeam[t])).join("")}
+      ${av.length ? sect(h("Audio / Visual Team") + roleBlock(av)) : ""}
+      ${Object.keys(byTeam).map(t => sect(h(t) + roleBlock(byTeam[t]))).join("")}
       ${optional(1, "Adult Sunday School", ADULT_CLASSES)}
       ${optional(2, "Fellowship", [DONUT_FELLOWSHIP])}`;
 
@@ -1520,10 +1570,8 @@ ${bodyWrap(pageTable(frontCell) + pageTable(backCell))}
 
           ${roleLine ? `<div style="font-size:14px;color:#333;font-family:Arial,sans-serif;line-height:1.7;margin-bottom:8px;text-align:center;">${roleLine}</div>` : ""}
 
-          <div style="display:flex;gap:26px;align-items:flex-start;">
-            <div data-col="left" style="flex:1;min-width:0;">${deaconColumn}</div>
-            <div style="width:1px;background:#e8e0d0;align-self:stretch;"></div>
-            <div data-col="right" style="flex:1;min-width:0;">${teamsColumn}</div>
+          <div style="column-count:2;column-gap:26px;column-rule:1px solid #e8e0d0;">
+            ${deaconColumn}${teamsColumn}
           </div>
 
           ${offeringBlock}
@@ -1582,19 +1630,13 @@ ${FIT_SCRIPT}
       inner.style.transform=''; inner.style.width='';
       inner.style.transformOrigin='top left';
 
-      // Standing ministries are "print if there's room". Drop them in order BEFORE
-      // shrinking type — but ONLY when they're actually what's costing the space.
-      // They sit in the right-hand column; the page is as tall as the TALLER column,
-      // so while the left (deacon) column is longer, these blocks are free and
-      // removing them buys nothing but a blank gap.
+      // Standing ministries are "print if there's room". The page is now one balanced
+      // two-column flow, so any block genuinely adds height — drop them in order
+      // before resorting to shrinking the type for everyone.
       for (var d=1; d<=3; d++){
         var lastNow = inner.lastElementChild;
         if(!lastNow) break;
         if(lastNow.getBoundingClientRect().bottom - outer.getBoundingClientRect().bottom <= -1) break;
-        var colL = inner.querySelector('[data-col="left"]');
-        var colR = inner.querySelector('[data-col="right"]');
-        if(colL && colR &&
-           colR.getBoundingClientRect().height <= colL.getBoundingClientRect().height) break;
         var opt = inner.querySelectorAll('[data-optional="'+d+'"]');
         if(!opt.length) continue;
         for (var q=0;q<opt.length;q++) opt[q].parentNode.removeChild(opt[q]);
@@ -1963,7 +2005,7 @@ order. A responsive reading that merely mentions a communion table is not enough
 Do not invent elements, names, or sections that are not in the source text. Use null when
 something is genuinely absent rather than guessing.`,
       });
-      setOrder(applyStaffTitles(creditWorshipDirector(labelDeaconReader(normalizeReadings(parsed)))));
+      setOrder(applyStaffTitles(creditWorshipDirector(inferBenediction(labelDeaconReader(normalizeReadings(parsed))))));
       setBackMode("order");
 
       // The worship plan is authoritative for the service date. Deriving it from the
