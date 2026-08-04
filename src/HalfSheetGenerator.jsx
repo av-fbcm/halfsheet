@@ -28,15 +28,31 @@ function useAutoShrink(outerRef, innerRef) {
     const outer = outerRef.current;
     const inner = innerRef.current;
     if (!outer || !inner) return;
+    // Same two corrections as FIT_SCRIPT, so the preview matches the printed PDF:
+    // measure at height:auto (flex children compress instead of overflowing, which
+    // hides the overrun from scrollHeight), and iterate because widening the box
+    // reflows text into fewer lines and invalidates the first measurement.
     inner.style.transform = "";
     inner.style.width = "";
+    inner.style.transformOrigin = "top left";
     const avail = outer.clientHeight;
-    const nat = inner.scrollHeight;
-    if (nat > avail * 1.005) {
-      const s = avail / nat;
+    const prevH = inner.style.height;
+    let s = 1;
+    for (let k = 0; k < 8; k++) {
+      inner.style.width = `${(100 / s).toFixed(3)}%`;
+      inner.style.height = "auto";
+      const nat = inner.scrollHeight;
+      inner.style.height = prevH;
+      const next = Math.min(1, avail / nat);
+      if (Math.abs(next - s) < 0.004) { s = next; break; }
+      s = next;
+    }
+    if (s < 0.999) {
+      inner.style.width = `${(100 / s).toFixed(3)}%`;
       inner.style.transform = `scale(${s.toFixed(4)})`;
-      inner.style.transformOrigin = "top left";
-      inner.style.width = `${(100 / s).toFixed(2)}%`;
+    } else {
+      inner.style.width = "";
+      inner.style.transform = "";
     }
   });
 }
@@ -1458,10 +1474,16 @@ ${FIT_SCRIPT}
       if(!inner) continue;
       inner.style.transform=''; inner.style.width='';
       inner.style.transformOrigin='top left';
-      var avail = outer.clientHeight, s = 1;
+      var avail = outer.clientHeight, s = 1, prevH = inner.style.height;
       for (var k=0;k<8;k++){
         inner.style.width = (100/s).toFixed(3)+'%';
-        var nat = inner.scrollHeight;              // layout height, ignores transform
+        // The page is a flex column at height:100%. Flex children default to
+        // flex-shrink:1, so an overrun COMPRESSES them instead of overflowing and
+        // scrollHeight under-reports it — the footer silently loses its last lines.
+        // Measure at height:auto so the true content height is visible, then restore.
+        inner.style.height = 'auto';
+        var nat = inner.scrollHeight;
+        inner.style.height = prevH;
         var next = Math.min(1, avail/nat);
         if (Math.abs(next-s) < 0.004) { s = next; break; }
         s = next;
